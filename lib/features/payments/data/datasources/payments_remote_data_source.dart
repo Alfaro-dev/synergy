@@ -1,4 +1,5 @@
 import '../../../../core/network/api_client.dart';
+import '../../../../core/network/secure_storage_service.dart';
 import '../models/payment_model.dart';
 
 abstract class PaymentsRemoteDataSource {
@@ -7,13 +8,18 @@ abstract class PaymentsRemoteDataSource {
 }
 
 class PaymentsRemoteDataSourceImpl implements PaymentsRemoteDataSource {
-  PaymentsRemoteDataSourceImpl({required this.apiClient, required this.token});
+  PaymentsRemoteDataSourceImpl({required this.apiClient, required this.secureStorage});
 
   final ApiClient apiClient;
-  final String token;
+  final SecureStorageService secureStorage;
+
+  Future<String> _getToken() async {
+    return await secureStorage.getValidToken() ?? '';
+  }
 
   @override
   Future<BalanceModel> getBalance(String communityId) async {
+    final token = await _getToken();
     final response = await apiClient.get(
       endpoint: '/payments/communities/$communityId/balance',
       token: token,
@@ -23,6 +29,7 @@ class PaymentsRemoteDataSourceImpl implements PaymentsRemoteDataSource {
 
   @override
   Future<VendingAddressModel> getVendingAddress() async {
+    final token = await _getToken();
     final response = await apiClient.get(
       endpoint: '/payments/vending-address',
       token: token,

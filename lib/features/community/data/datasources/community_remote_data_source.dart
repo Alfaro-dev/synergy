@@ -1,4 +1,5 @@
 import '../../../../core/network/api_client.dart';
+import '../../../../core/network/secure_storage_service.dart';
 import '../models/community_model.dart';
 
 abstract class CommunityRemoteDataSource {
@@ -22,13 +23,18 @@ abstract class CommunityRemoteDataSource {
 }
 
 class CommunityRemoteDataSourceImpl implements CommunityRemoteDataSource {
-  CommunityRemoteDataSourceImpl({required this.apiClient, required this.token});
+  CommunityRemoteDataSourceImpl({required this.apiClient, required this.secureStorage});
 
   final ApiClient apiClient;
-  final String token;
+  final SecureStorageService secureStorage;
+
+  Future<String> _getToken() async {
+    return await secureStorage.getValidToken() ?? '';
+  }
 
   @override
   Future<CommunitiesResponseModel> getCommunities({String? before}) async {
+    final token = await _getToken();
     final endpoint = before != null ? '/communities?before=$before' : '/communities';
     final response = await apiClient.get(endpoint: endpoint, token: token);
     return CommunitiesResponseModel.fromJson(response);
@@ -36,6 +42,7 @@ class CommunityRemoteDataSourceImpl implements CommunityRemoteDataSource {
 
   @override
   Future<CreatorProfileModel> getCreatorProfile(String communityId) async {
+    final token = await _getToken();
     final response = await apiClient.get(
       endpoint: '/communities/$communityId/creator-profile',
       token: token,
@@ -45,6 +52,7 @@ class CommunityRemoteDataSourceImpl implements CommunityRemoteDataSource {
 
   @override
   Future<CommunityMetaModel> getCommunityMetadata(String communityId) async {
+    final token = await _getToken();
     final response = await apiClient.get(
       endpoint: '/communities/$communityId/metadata',
       token: token,
@@ -59,6 +67,7 @@ class CommunityRemoteDataSourceImpl implements CommunityRemoteDataSource {
     String? bio,
     String? avatarCid,
   }) async {
+    final token = await _getToken();
     final body = <String, dynamic>{'name': name};
     if (bio != null) body['bio'] = bio;
     if (avatarCid != null) body['avatar_cid'] = avatarCid;
@@ -76,6 +85,7 @@ class CommunityRemoteDataSourceImpl implements CommunityRemoteDataSource {
     required String communityId,
     required bool isPublic,
   }) async {
+    final token = await _getToken();
     final response = await apiClient.patch(
       endpoint: '/communities/$communityId/visibility',
       token: token,
@@ -89,6 +99,7 @@ class CommunityRemoteDataSourceImpl implements CommunityRemoteDataSource {
     required String communityId,
     required String filePath,
   }) async {
+    final token = await _getToken();
     final response = await apiClient.uploadFile(
       endpoint: '/communities/$communityId/avatar',
       token: token,

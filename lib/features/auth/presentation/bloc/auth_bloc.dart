@@ -2,6 +2,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/errors/exceptions.dart';
 import '../../domain/usecases/check_auth_status.dart';
 import '../../domain/usecases/get_nonce.dart';
+import '../../domain/usecases/get_saved_session.dart';
 import '../../domain/usecases/logout.dart';
 import '../../domain/usecases/verify_signature.dart';
 import 'auth_event.dart';
@@ -13,6 +14,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     required this.verifySignature,
     required this.checkAuthStatus,
     required this.logout,
+    required this.getSavedSession,
   }) : super(const AuthInitial()) {
     on<AuthCheckRequested>(_onCheckRequested);
     on<AuthConnectWallet>(_onConnectWallet);
@@ -30,6 +32,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   final VerifySignature verifySignature;
   final CheckAuthStatus checkAuthStatus;
   final Logout logout;
+  final GetSavedSession getSavedSession;
 
   Future<void> _onCheckRequested(
     AuthCheckRequested event,
@@ -185,29 +188,14 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     Emitter<AuthState> emit,
   ) async {
     emit(const AuthValidating());
-    try {
-      final session = await verifySignature(
-        message: event.message,
-        signature: event.signature,
-      );
+    final session = await getSavedSession();
+    if (session != null) {
       emit(AuthAuthenticated(session: session));
-    } on InvalidNonceException {
+    } else {
       emit(const AuthError(
-        type: AuthErrorType.nonceExpired,
-        message: 'La sesión expiró. Intentá de nuevo.',
+        type: AuthErrorType.serverError,
+        message: 'No se encontró la sesión. Intentá de nuevo.',
       ));
-    } on InvalidSignatureException {
-      emit(const AuthError(
-        type: AuthErrorType.signatureRejected,
-        message: 'La firma no es válida. Intentá de nuevo.',
-      ));
-    } on NetworkException {
-      emit(const AuthError(
-        type: AuthErrorType.noConnection,
-        message: 'Sin conexión. Revisá tu internet e intentá de nuevo.',
-      ));
-    } on AppException catch (e) {
-      emit(AuthError(type: AuthErrorType.serverError, message: e.message));
     }
   }
 }

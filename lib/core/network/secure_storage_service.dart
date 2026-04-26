@@ -1,3 +1,4 @@
+import 'dart:developer';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../../features/auth/domain/entities/auth_session.dart';
 
@@ -26,18 +27,26 @@ class SecureStorageService {
 
   Future<String?> getValidToken() async {
     final token = await _storage.read(key: _tokenKey);
+    log('[SecureStorage] getValidToken: token = ${token != null ? "${token.length} chars" : "null"}');
     final expiresAtStr = await _storage.read(key: _expiresAtKey);
+    log('[SecureStorage] getValidToken: expiresAt = $expiresAtStr');
 
-    if (token == null || expiresAtStr == null) return null;
+    if (token == null || expiresAtStr == null) {
+      log('[SecureStorage] getValidToken: returning null because token or expiresAt is null');
+      return null;
+    }
 
     final expiresAt = int.parse(expiresAtStr);
     final nowSeconds = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+    log('[SecureStorage] getValidToken: now=$nowSeconds, expires=$expiresAt');
 
     if (nowSeconds >= expiresAt) {
+      log('[SecureStorage] getValidToken: token expired, clearing');
       await clearSession();
       return null;
     }
 
+    log('[SecureStorage] getValidToken: returning token');
     return token;
   }
 
@@ -67,5 +76,13 @@ Future<AuthSession?> getSession() async {
 
   Future<void> clearSession() async {
     await _storage.deleteAll();
+  }
+
+  Future<void> debugPrintStoredKeys() async {
+    final token = await _storage.read(key: 'jwt');
+    final expires = await _storage.read(key: 'jwt_expires_at');
+    final isNewUser = await _storage.read(key: 'is_new_user');
+    final address = await _storage.read(key: 'wallet_address');
+    log('[SecureStorage] Stored keys - jwt: ${token != null ? "${token.length} chars" : "null"}, expires: $expires, isNewUser: $isNewUser, address: $address');
   }
 }

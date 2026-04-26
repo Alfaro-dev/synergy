@@ -8,6 +8,7 @@ import 'features/auth/data/datasources/auth_remote_data_source.dart';
 import 'features/auth/data/repositories/auth_repository_impl.dart';
 import 'features/auth/domain/usecases/check_auth_status.dart';
 import 'features/auth/domain/usecases/get_nonce.dart';
+import 'features/auth/domain/usecases/get_saved_session.dart';
 import 'features/auth/domain/usecases/logout.dart';
 import 'features/auth/domain/usecases/verify_signature.dart';
 import 'features/auth/presentation/bloc/auth_bloc.dart';
@@ -15,50 +16,114 @@ import 'features/auth/presentation/bloc/auth_event.dart';
 import 'features/auth/presentation/bloc/auth_state.dart';
 import 'features/auth/presentation/pages/onboarding_page.dart';
 import 'features/auth/presentation/pages/welcome_page.dart';
+import 'features/community/data/datasources/community_remote_data_source.dart';
+import 'features/community/data/repositories/community_repository_impl.dart';
+import 'features/community/domain/repositories/community_repository.dart';
+import 'features/community/presentation/bloc/community_bloc.dart';
+import 'features/community/presentation/bloc/community_event.dart';
 import 'features/community/presentation/pages/communities_page.dart';
+import 'features/content/data/datasources/content_remote_data_source.dart';
+import 'features/content/data/repositories/content_repository_impl.dart';
+import 'features/content/domain/repositories/content_repository.dart';
+import 'features/content/presentation/bloc/feed_bloc.dart';
+import 'features/content/presentation/bloc/feed_event.dart';
 import 'features/content/presentation/pages/feed_page.dart';
+import 'features/profile/data/datasources/profile_remote_data_source.dart';
+import 'features/profile/data/repositories/profile_repository_impl.dart';
+import 'features/profile/domain/repositories/profile_repository.dart';
+import 'features/profile/presentation/bloc/profile_bloc.dart';
+import 'features/profile/presentation/bloc/profile_event.dart';
 import 'features/profile/presentation/pages/profile_page.dart';
+import 'features/payments/data/datasources/payments_remote_data_source.dart';
+import 'features/payments/data/repositories/payments_repository_impl.dart';
+import 'features/payments/domain/repositories/payments_repository.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await dotenv.load();
-  runApp(const SynergyApp());
+
+  final apiClient = ApiClient();
+  final secureStorage = SecureStorageService();
+
+  final authRepository = AuthRepositoryImpl(
+    remoteDataSource: AuthRemoteDataSourceImpl(apiClient: apiClient),
+    localDataSource: AuthLocalDataSourceImpl(secureStorage: secureStorage),
+  );
+
+  final communityRepository = CommunityRepositoryImpl(
+    remoteDataSource: CommunityRemoteDataSourceImpl(
+      apiClient: apiClient,
+      secureStorage: secureStorage,
+    ),
+  );
+
+  final contentRepository = ContentRepositoryImpl(
+    remoteDataSource: ContentRemoteDataSourceImpl(
+      apiClient: apiClient,
+      secureStorage: secureStorage,
+    ),
+  );
+
+  final profileRepository = ProfileRepositoryImpl(
+    remoteDataSource: ProfileRemoteDataSourceImpl(
+      apiClient: apiClient,
+      secureStorage: secureStorage,
+    ),
+  );
+
+  final paymentsRepository = PaymentsRepositoryImpl(
+    remoteDataSource: PaymentsRemoteDataSourceImpl(
+      apiClient: apiClient,
+      secureStorage: secureStorage,
+    ),
+  );
+
+  runApp(SynergyApp(
+    authRepository: authRepository,
+    communityRepository: communityRepository,
+    contentRepository: contentRepository,
+    profileRepository: profileRepository,
+    paymentsRepository: paymentsRepository,
+    secureStorage: secureStorage,
+  ));
 }
 
-class SynergyApp extends StatefulWidget {
-  const SynergyApp({super.key});
+class SynergyApp extends StatelessWidget {
+  const SynergyApp({
+    super.key,
+    required this.authRepository,
+    required this.communityRepository,
+    required this.contentRepository,
+    required this.profileRepository,
+    required this.paymentsRepository,
+    required this.secureStorage,
+  });
 
-  @override
-  State<SynergyApp> createState() => _SynergyAppState();
-}
-
-class _SynergyAppState extends State<SynergyApp> {
-  late final ApiClient _apiClient;
-  late final SecureStorageService _secureStorage;
-  late final AuthRepositoryImpl _authRepository;
-
-  @override
-  void initState() {
-    super.initState();
-    _apiClient = ApiClient();
-    _secureStorage = SecureStorageService();
-    _authRepository = AuthRepositoryImpl(
-      remoteDataSource: AuthRemoteDataSourceImpl(apiClient: _apiClient),
-      localDataSource: AuthLocalDataSourceImpl(secureStorage: _secureStorage),
-    );
-  }
+  final AuthRepositoryImpl authRepository;
+  final CommunityRepositoryImpl communityRepository;
+  final ContentRepositoryImpl contentRepository;
+  final ProfileRepositoryImpl profileRepository;
+  final PaymentsRepositoryImpl paymentsRepository;
+  final SecureStorageService secureStorage;
 
   @override
   Widget build(BuildContext context) {
-    return RepositoryProvider<AuthRepositoryImpl>.value(
-      value: _authRepository,
+    return MultiRepositoryProvider(
+      providers: [
+        RepositoryProvider<AuthRepositoryImpl>.value(value: authRepository),
+        RepositoryProvider<CommunityRepository>.value(value: communityRepository),
+        RepositoryProvider<ContentRepository>.value(value: contentRepository),
+        RepositoryProvider<ProfileRepository>.value(value: profileRepository),
+        RepositoryProvider<PaymentsRepository>.value(value: paymentsRepository),
+      ],
       child: BlocProvider<AuthBloc>(
         create: (context) => AuthBloc(
-          getNonce: GetNonce(_authRepository),
-          verifySignature: VerifySignature(_authRepository),
-          checkAuthStatus: CheckAuthStatus(_authRepository),
-          logout: Logout(_authRepository),
-        )..add(const AuthCheckRequested()),
+          getNonce: GetNonce(authRepository),
+          verifySignature: VerifySignature(authRepository),
+          checkAuthStatus: CheckAuthStatus(authRepository),
+          logout: Logout(authRepository),
+          getSavedSession: GetSavedSession(authRepository),
+        ),
         child: MaterialApp(
           title: 'Synergy',
           theme: ThemeData(
@@ -76,15 +141,7 @@ class _SynergyAppState extends State<SynergyApp> {
     switch (settings.name) {
       case '/':
         return MaterialPageRoute(
-          builder: (context) => BlocProvider<AuthBloc>(
-            create: (context) => AuthBloc(
-              getNonce: GetNonce(context.read<AuthRepositoryImpl>()),
-              verifySignature: VerifySignature(context.read<AuthRepositoryImpl>()),
-              checkAuthStatus: CheckAuthStatus(context.read<AuthRepositoryImpl>()),
-              logout: Logout(context.read<AuthRepositoryImpl>()),
-            )..add(const AuthCheckRequested()),
-            child: const WelcomePage(),
-          ),
+          builder: (context) => WelcomePage(secureStorage: secureStorage),
         );
       case '/onboarding':
         return MaterialPageRoute(
@@ -96,19 +153,34 @@ class _SynergyAppState extends State<SynergyApp> {
         );
       case '/feed':
         return MaterialPageRoute(
-          builder: (context) => const FeedPage(),
+          builder: (context) => BlocProvider<FeedBloc>(
+            create: (context) => FeedBloc(
+              repository: context.read<ContentRepository>(),
+            )..add(const FeedFetchRequested()),
+            child: const FeedPage(),
+          ),
         );
       case '/communities':
         return MaterialPageRoute(
-          builder: (context) => const CommunitiesPage(),
+          builder: (context) => BlocProvider<CommunityBloc>(
+            create: (context) => CommunityBloc(
+              repository: context.read<CommunityRepository>(),
+            )..add(const CommunityFetchRequested()),
+            child: const CommunitiesPage(),
+          ),
         );
       case '/profile':
         return MaterialPageRoute(
-          builder: (context) => const ProfilePage(),
+          builder: (context) => BlocProvider<ProfileBloc>(
+            create: (context) => ProfileBloc(
+              repository: context.read<ProfileRepository>(),
+            )..add(const ProfileFetchRequested()),
+            child: const ProfilePage(),
+          ),
         );
       default:
         return MaterialPageRoute(
-          builder: (context) => const WelcomePage(),
+          builder: (context) => WelcomePage(secureStorage: secureStorage),
         );
     }
   }

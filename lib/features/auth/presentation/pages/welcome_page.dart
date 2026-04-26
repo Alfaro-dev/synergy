@@ -1,9 +1,17 @@
+import 'dart:developer';
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:reown_appkit/reown_appkit.dart';
+import 'package:web3dart/web3dart.dart';
 import '../../../../core/constants/api_constants.dart';
+import '../../../../core/network/secure_storage_service.dart';
+import '../../domain/entities/auth_session.dart';
+import '../bloc/auth_bloc.dart';
+import '../bloc/auth_event.dart';
+import '../bloc/auth_state.dart';
 
 // ─── Constantes centralizadas ───────────────────────────────────────────────
 const _kChainId     = '11155111';
@@ -16,7 +24,9 @@ const _kAppUrl      = 'https://sinergia-backend-production.up.railway.app';
 const _kRpcUrl      = 'https://rpc.sepolia.org';
 
 class WelcomePage extends StatefulWidget {
-  const WelcomePage({super.key});
+  const WelcomePage({super.key, required this.secureStorage});
+
+  final SecureStorageService secureStorage;
 
   @override
   State<WelcomePage> createState() => _WelcomePageState();
@@ -24,15 +34,17 @@ class WelcomePage extends StatefulWidget {
 
 class _WelcomePageState extends State<WelcomePage> {
   late final ReownAppKitModal _appKitModal;
+  late final SecureStorageService _secureStorage;
   bool _isInitialized = false;
   String? _initError;
   bool _isSigning = false;
-  String? _pendingAddress;
   int _retryCount = 0;
+  String? _pendingAddress;
 
   @override
   void initState() {
     super.initState();
+    _secureStorage = widget.secureStorage;
     ReownAppKitModalNetworks.addSupportedNetworks(_kNamespace, [
       ReownAppKitModalNetworkInfo(
         name: 'Sepolia',
@@ -44,6 +56,37 @@ class _WelcomePageState extends State<WelcomePage> {
       ),
     ]);
     WidgetsBinding.instance.addPostFrameCallback((_) => _initAppKit());
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocListener<AuthBloc, AuthState>(
+      listener: (context, state) {
+        if (state is AuthAuthenticated) {
+          // AuthBloc received successful auth - wallet already navigated
+        } else if (state is AuthUnauthenticated) {
+          // Logged out - disconnect wallet
+          if (_appKitModal.isConnected) {
+            _appKitModal.disconnect();
+          }
+        }
+      },
+      child: Scaffold(
+        body: SafeArea(
+          child: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                _buildHeader(context),
+                const SizedBox(height: 48),
+                _buildContent(context),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   Future<void> _initAppKit() async {
@@ -101,17 +144,13 @@ class _WelcomePageState extends State<WelcomePage> {
     }
   }
 
-  // ─── Issued At con 3 decimales (ms) — el backend no acepta microsegundos ──
-  // DateTime.now().toUtc().toIso8601String() da microsegundos: 2026-04-26T02:56:36.430017Z
-  // El backend espera milisegundos:                            2026-04-26T02:56:36.430Z
   String _issuedAt() {
     final now = DateTime.now().toUtc();
     final ms = now.millisecond.toString().padLeft(3, '0');
-    final base = now.toIso8601String().split('.')[0]; // '2026-04-26T02:56:36'
-    return '${base}.${ms}Z';
+    final base = now.toIso8601String().split('.')[0];
+    return '$base.${ms}Z';
   }
 
-  // ─── Chains de la sesión ───────────────────────────────────────────────────
   List<String> _getSessionChains() {
     try {
       final ns = _appKitModal.session?.namespaces;
@@ -183,7 +222,6 @@ class _WelcomePageState extends State<WelcomePage> {
     setState(() => _isSigning = true);
 
     try {
-      // 1. Nonce
       final nonceRes = await http.get(
         Uri.parse('${ApiConstants.baseUrl}/auth/nonce'),
       );
@@ -192,18 +230,11 @@ class _WelcomePageState extends State<WelcomePage> {
       }
       final nonce = (jsonDecode(nonceRes.body) as Map<String, dynamic>)['nonce'] as String;
 
-      // 2. Switch a Sepolia
       await _switchToSepolia();
 
-      // 3. Mensaje SIWE — formato EIP-4361 exacto
-      // IMPORTANTE: el address va exactamente como lo devuelve MetaMask
-      // El personal_sign firma el mensaje con ese mismo address
-      // Issued At con milisegundos (3 decimales), no microsegundos (6 decimales)
       final message = _buildSiweMessage(address, nonce);
       debugPrint('[Synergy] SIWE message:\n$message');
 
-      // 4. Firma en CAIP-2
-      // params: [message, address] — orden correcto para personal_sign
       String signature;
       try {
         signature = await _appKitModal.request(
@@ -234,7 +265,6 @@ class _WelcomePageState extends State<WelcomePage> {
 
       debugPrint('[Synergy] Firma: $signature');
 
-      // 5. Verify
       final verifyRes = await http.post(
         Uri.parse('${ApiConstants.baseUrl}/auth/verify'),
         headers: {'Content-Type': 'application/json'},
@@ -247,6 +277,30 @@ class _WelcomePageState extends State<WelcomePage> {
       if (verifyRes.statusCode == 200) {
         final data = jsonDecode(verifyRes.body) as Map<String, dynamic>;
         final isNewUser = data['is_new_user'] as bool? ?? false;
+        final token = data['token'] as String?;
+        final expiresAt = data['expires_at'] as int?;
+
+        log('[WelcomePage] Saving token to secure storage...');
+        if (token != null && expiresAt != null) {
+          log('[WelcomePage] token length: ${token.length}, expiresAt: $expiresAt');
+          final session = AuthSession(
+            token: token,
+            expiresAt: DateTime.fromMillisecondsSinceEpoch(expiresAt * 1000),
+            isNewUser: isNewUser,
+            walletAddress: address,
+          );
+          await _secureStorage.saveSession(session);
+          log('[WelcomePage] All values saved to secure storage');
+        } else {
+          log('[WelcomePage] ERROR: token or expiresAt is null!');
+        }
+
+        // Notify AuthBloc of successful sign in
+        context.read<AuthBloc>().add(AuthSignResult(
+          message: message,
+          signature: signature,
+        ));
+
         if (isNewUser) {
           navigator.pushReplacementNamed('/onboarding');
         } else {
@@ -289,24 +343,25 @@ class _WelcomePageState extends State<WelcomePage> {
     }
   }
 
+  String _toChecksumAddress(String address) {
+    return EthereumAddress.fromHex(address).eip55With0x;
+  }
+
   String _buildSiweMessage(String address, String nonce) {
-    // EIP-4361 exacto — lista de líneas unidas con \n, sin \n al final
-    // Líneas vacías ('') generan los \n\n requeridos antes y después del statement
+    final checksumAddr = _toChecksumAddress(address);
     return [
       '$_kDomain wants you to sign in with your Ethereum account:',
-      address,
-      '',                    // línea en blanco antes del statement
+      checksumAddr,
+      '',
       'Sign in to Sinergia',
-      '',                    // línea en blanco después del statement
+      '',
       'URI: $_kAppUrl',
       'Version: 1',
       'Chain ID: $_kChainId',
       'Nonce: $nonce',
-      'Issued At: ${_issuedAt()}',  // 3 decimales: 2026-04-26T02:56:36.430Z
+      'Issued At: ${_issuedAt()}',
     ].join('\n');
   }
-
-  // ─── Event handlers ────────────────────────────────────────────────────────
 
   void _onModalConnect(ModalConnect? event) {
     debugPrint('[Synergy] _onModalConnect');
@@ -314,7 +369,6 @@ class _WelcomePageState extends State<WelcomePage> {
     final address = event.session.getAddress(_kNamespace);
     if (address == null) return;
     debugPrint('[Synergy] Wallet conectada: $address');
-    // Auto-lanzar SIWE — un solo click para el usuario
     _triggerSiweFlow(address);
   }
 
@@ -361,27 +415,6 @@ class _WelcomePageState extends State<WelcomePage> {
     super.dispose();
   }
 
-  // ─── Build ─────────────────────────────────────────────────────────────────
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(32),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              _buildHeader(context),
-              const SizedBox(height: 48),
-              _buildContent(context),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
   Widget _buildHeader(BuildContext context) {
     return Column(
       children: [
@@ -404,50 +437,58 @@ class _WelcomePageState extends State<WelcomePage> {
 
   Widget _buildContent(BuildContext context) {
     if (_isSigning) {
-      return Column(
-        children: [
-          const CircularProgressIndicator(),
-          const SizedBox(height: 16),
-          Text('Firmando mensaje...', style: Theme.of(context).textTheme.bodyMedium),
-          const SizedBox(height: 8),
-          Text(
-            'Revisá MetaMask para aprobar',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
-          ),
-          const SizedBox(height: 24),
-          TextButton(
-            onPressed: () => setState(() {
-              _isSigning = false;
-              _pendingAddress = null;
-              _retryCount = 0;
-            }),
-            child: const Text('Cancelar'),
-          ),
-        ],
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            const CircularProgressIndicator(),
+            const SizedBox(height: 16),
+            Text('Firmando mensaje...', style: Theme.of(context).textTheme.bodyMedium),
+            const SizedBox(height: 8),
+            Text(
+              'Revisá MetaMask para aprobar',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+            ),
+            const SizedBox(height: 24),
+            TextButton(
+              onPressed: () => setState(() {
+                _isSigning = false;
+                _pendingAddress = null;
+                _retryCount = 0;
+              }),
+              child: const Text('Cancelar'),
+            ),
+          ],
+        ),
       );
     }
 
     if (_initError != null) {
-      return Column(
-        children: [
-          Icon(Icons.error_outline, size: 64, color: Theme.of(context).colorScheme.error),
-          const SizedBox(height: 16),
-          Text(
-            'No se pudo inicializar la wallet',
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.bodyMedium,
-          ),
-          const SizedBox(height: 16),
-          FilledButton(
-            onPressed: () {
-              setState(() => _initError = null);
-              _initAppKit();
-            },
-            child: const Text('Reintentar'),
-          ),
-        ],
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Icon(Icons.error_outline, size: 64, color: Theme.of(context).colorScheme.error),
+            const SizedBox(height: 16),
+            Text(
+              'No se pudo inicializar la wallet',
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+            const SizedBox(height: 16),
+            FilledButton(
+              onPressed: () {
+                setState(() => _initError = null);
+                _initAppKit();
+              },
+              child: const Text('Reintentar'),
+            ),
+          ],
+        ),
       );
     }
 
@@ -455,54 +496,60 @@ class _WelcomePageState extends State<WelcomePage> {
       return const CircularProgressIndicator();
     }
 
-    // Conectado pero canceló la firma — botón manual de reintento
     if (_appKitModal.isConnected) {
       final address = _appKitModal.session?.getAddress(_kNamespace);
-      return Column(
-        children: [
-          Icon(
-            Icons.account_balance_wallet_outlined,
-            size: 64,
-            color: Theme.of(context).colorScheme.primary,
-          ),
-          const SizedBox(height: 16),
-          Text('Wallet conectada', style: Theme.of(context).textTheme.titleMedium),
-          if (address != null) ...[
-            const SizedBox(height: 8),
-            Text(
-              '${address.substring(0, 6)}...${address.substring(address.length - 4)}',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.account_balance_wallet_outlined,
+              size: 64,
+              color: Theme.of(context).colorScheme.primary,
             ),
-            const SizedBox(height: 24),
-            FilledButton(
-              onPressed: () => _triggerSiweFlow(address),
-              child: const Text('Iniciar sesión'),
+            const SizedBox(height: 16),
+            Text('Wallet conectada', style: Theme.of(context).textTheme.titleMedium),
+            if (address != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                '${address.substring(0, 6)}...${address.substring(address.length - 4)}',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+              ),
+              const SizedBox(height: 24),
+              FilledButton(
+                onPressed: () => _triggerSiweFlow(address),
+                child: const Text('Iniciar sesión'),
+              ),
+            ],
+            const SizedBox(height: 12),
+            TextButton(
+              onPressed: () => _appKitModal.disconnect(),
+              child: const Text('Usar otra wallet'),
             ),
           ],
-          const SizedBox(height: 12),
-          TextButton(
-            onPressed: () => _appKitModal.disconnect(),
-            child: const Text('Usar otra wallet'),
-          ),
-        ],
+        ),
       );
     }
 
-    // Estado inicial — un click → conecta → SIWE automático
-    return Column(
-      children: [
-        AppKitModalConnectButton(appKit: _appKitModal),
-        const SizedBox(height: 12),
-        Text(
-          'Al conectar se te pedirá firmar un mensaje para verificar tu identidad',
-          textAlign: TextAlign.center,
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
-        ),
-      ],
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          AppKitModalConnectButton(appKit: _appKitModal),
+          const SizedBox(height: 12),
+          Text(
+            'Al conectar se te pedirá firmar un mensaje para verificar tu identidad',
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+          ),
+        ],
+      ),
     );
   }
 }
