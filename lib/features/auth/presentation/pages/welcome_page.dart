@@ -282,10 +282,12 @@ class _WelcomePageState extends State<WelcomePage> {
 
         log('[WelcomePage] Saving token to secure storage...');
         if (token != null && expiresAt != null) {
-          log('[WelcomePage] token length: ${token.length}, expiresAt: $expiresAt');
+          log('[WelcomePage] token length: ${token.length}, expiresAt raw from server: $expiresAt');
+          final expiresAtDateTime = DateTime.fromMillisecondsSinceEpoch(expiresAt * 1000);
+          log('[WelcomePage] expiresAt converted: millisecondsSinceEpoch=${expiresAtDateTime.millisecondsSinceEpoch}');
           final session = AuthSession(
             token: token,
-            expiresAt: DateTime.fromMillisecondsSinceEpoch(expiresAt * 1000),
+            expiresAt: expiresAtDateTime,
             isNewUser: isNewUser,
             walletAddress: address,
           );

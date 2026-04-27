@@ -1,10 +1,25 @@
 import 'dart:developer';
+
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:meta/meta.dart';
 import '../../features/auth/domain/entities/auth_session.dart';
 
 class SecureStorageService {
-  SecureStorageService({FlutterSecureStorage? storage})
-      : _storage = storage ?? const FlutterSecureStorage();
+  SecureStorageService._internal({required FlutterSecureStorage storage})
+      : _storage = storage;
+
+  static final SecureStorageService _instance = SecureStorageService._internal(
+    storage: const FlutterSecureStorage(),
+  );
+
+  static SecureStorageService get instance => _instance;
+
+  factory SecureStorageService() => instance;
+
+  @visibleForTesting
+  factory SecureStorageService.withStorage(FlutterSecureStorage storage) {
+    return SecureStorageService._internal(storage: storage);
+  }
 
   final FlutterSecureStorage _storage;
 
@@ -14,39 +29,47 @@ class SecureStorageService {
   static const String _addressKey = 'wallet_address';
 
   Future<void> saveSession(AuthSession session) async {
+    log('[SecureStorage] saveSession: START (instance hash=${this.hashCode})');
+    log('[SecureStorage] saveSession: token=${session.token.length} chars, expiresAt=${session.expiresAt.millisecondsSinceEpoch}, wallet=${session.walletAddress}');
     await _storage.write(key: _tokenKey, value: session.token);
+    final expiresAtMs = session.expiresAt.millisecondsSinceEpoch;
+    log('[SecureStorage] saveSession: after write token, expiresAtMs=$expiresAtMs');
     await _storage.write(
       key: _expiresAtKey,
-      value: session.expiresAt.millisecondsSinceEpoch.toString(),
+      value: expiresAtMs.toString(),
     );
+    log('[SecureStorage] saveSession: after write expiresAt, value=${expiresAtMs.toString()}');
     await _storage.write(key: _isNewUserKey, value: session.isNewUser.toString());
     if (session.walletAddress != null) {
       await _storage.write(key: _addressKey, value: session.walletAddress);
     }
+    log('[SecureStorage] saveSession: END - all values written');
   }
 
   Future<String?> getValidToken() async {
     final token = await _storage.read(key: _tokenKey);
-    log('[SecureStorage] getValidToken: token = ${token != null ? "${token.length} chars" : "null"}');
     final expiresAtStr = await _storage.read(key: _expiresAtKey);
-    log('[SecureStorage] getValidToken: expiresAt = $expiresAtStr');
+    final isNewUserStr = await _storage.read(key: _isNewUserKey);
+    final address = await _storage.read(key: _addressKey);
+
+    log('[SecureStorage] getValidToken: READ from storage - token=${token != null ? "${token.length} chars" : "null"}, expiresAtStr="$expiresAtStr", isNewUser="$isNewUserStr", address=${address != null ? "present" : "null"}');
 
     if (token == null || expiresAtStr == null) {
-      log('[SecureStorage] getValidToken: returning null because token or expiresAt is null');
+      log('[SecureStorage] getValidToken: returning null because token=$token or expiresAtStr=$expiresAtStr is null');
       return null;
     }
 
-    final expiresAt = int.parse(expiresAtStr);
-    final nowSeconds = DateTime.now().millisecondsSinceEpoch ~/ 1000;
-    log('[SecureStorage] getValidToken: now=$nowSeconds, expires=$expiresAt');
+    final expiresAtMs = int.parse(expiresAtStr);
+    final nowMs = DateTime.now().millisecondsSinceEpoch;
+    log('[SecureStorage] getValidToken: PARSED - nowMs=$nowMs, expiresAtMs=$expiresAtMs, diff=${expiresAtMs - nowMs}ms');
 
-    if (nowSeconds >= expiresAt) {
+    if (nowMs >= expiresAtMs) {
       log('[SecureStorage] getValidToken: token expired, clearing');
       await clearSession();
       return null;
     }
 
-    log('[SecureStorage] getValidToken: returning token');
+    log('[SecureStorage] getValidToken: returning token (instance hash=${this.hashCode})');
     return token;
   }
 
@@ -56,15 +79,23 @@ class SecureStorageService {
   }
 
 Future<AuthSession?> getSession() async {
+    log('[SecureStorage] getSession: START (instance hash=${this.hashCode})');
     final token = await getValidToken();
-    if (token == null) return null;
+    if (token == null) {
+      log('[SecureStorage] getSession: token was null from getValidToken, returning null');
+      return null;
+    }
 
     final expiresAtStr = await _storage.read(key: _expiresAtKey);
     final isNewUserStr = await _storage.read(key: _isNewUserKey);
     final address = await _storage.read(key: _addressKey);
 
-    if (expiresAtStr == null || isNewUserStr == null) return null;
+    if (expiresAtStr == null || isNewUserStr == null) {
+      log('[SecureStorage] getSession: expiresAt or isNewUser is null, returning null');
+      return null;
+    }
 
+    log('[SecureStorage] getSession: SUCCESS, returning session');
     return AuthSession(
       token: token,
       expiresAt:
@@ -75,7 +106,10 @@ Future<AuthSession?> getSession() async {
   }
 
   Future<void> clearSession() async {
+    log('[SecureStorage] clearSession: CALLED (instance hash=${this.hashCode})');
+    log('[SecureStorage] clearSession: STACK TRACE: ${StackTrace.current}');
     await _storage.deleteAll();
+    log('[SecureStorage] clearSession: DONE - all keys deleted');
   }
 
   Future<void> debugPrintStoredKeys() async {
