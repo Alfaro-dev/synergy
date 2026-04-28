@@ -4,8 +4,47 @@ import '../bloc/feed_bloc.dart';
 import '../bloc/feed_event.dart';
 import '../bloc/feed_state.dart';
 
-class FeedPage extends StatelessWidget {
+class FeedPage extends StatefulWidget {
   const FeedPage({super.key});
+
+  @override
+  State<FeedPage> createState() => _FeedPageState();
+}
+
+class _FeedPageState extends State<FeedPage> {
+  final ScrollController _scrollController = ScrollController();
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_onScroll);
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (!_scrollController.hasClients) return;
+    final maxScroll = _scrollController.position.maxScrollExtent;
+    final currentScroll = _scrollController.offset;
+    final threshold = maxScroll - 200;
+
+    if (currentScroll >= threshold) {
+      final state = context.read<FeedBloc>().state;
+      if (state is FeedLoaded && state.hasMore && state is! FeedLoadingMore) {
+        context.read<FeedBloc>().add(const FeedLoadMoreRequested());
+      }
+    }
+  }
+
+  Future<void> _onRefresh() async {
+    final bloc = context.read<FeedBloc>();
+    bloc.add(const FeedRefreshRequested());
+    await bloc.stream.firstWhere((s) => s is FeedLoaded || s is FeedError);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -51,17 +90,14 @@ class FeedPage extends StatelessWidget {
           if (state is FeedLoaded || state is FeedLoadingMore) {
             final List<dynamic> posts;
             final bool hasMore;
-            final String? nextBefore;
 
             if (state is FeedLoaded) {
               posts = state.posts;
               hasMore = state.hasMore;
-              // nextBefore = state.nextBefore;
             } else {
               final moreState = state as FeedLoadingMore;
               posts = moreState.posts;
               hasMore = moreState.hasMore;
-              nextBefore = moreState.nextBefore;
             }
 
             if (posts.isEmpty) {
@@ -71,20 +107,12 @@ class FeedPage extends StatelessWidget {
             }
 
             return RefreshIndicator(
-              onRefresh: () async {
-                context.read<FeedBloc>().add(const FeedRefreshRequested());
-              },
+              onRefresh: _onRefresh,
               child: ListView.builder(
+                controller: _scrollController,
                 itemCount: posts.length + (hasMore ? 1 : 0),
                 itemBuilder: (context, index) {
                   if (index == posts.length) {
-                    if (state is FeedLoadingMore) {
-                      return const Padding(
-                        padding: EdgeInsets.all(16),
-                        child: Center(child: CircularProgressIndicator()),
-                      );
-                    }
-                    context.read<FeedBloc>().add(const FeedLoadMoreRequested());
                     return const Padding(
                       padding: EdgeInsets.all(16),
                       child: Center(child: CircularProgressIndicator()),

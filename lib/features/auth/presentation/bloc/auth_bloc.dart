@@ -42,7 +42,12 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     try {
       final isLoggedIn = await checkAuthStatus();
       if (isLoggedIn) {
-        emit(const AuthUnauthenticated());
+        final session = await getSavedSession();
+        if (session != null) {
+          emit(AuthAuthenticated(session: session));
+        } else {
+          emit(const AuthUnauthenticated());
+        }
       } else {
         emit(const AuthUnauthenticated());
       }

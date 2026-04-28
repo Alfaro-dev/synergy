@@ -8,6 +8,7 @@ class PaymentsBloc extends Bloc<PaymentsEvent, PaymentsState> {
   PaymentsBloc({required this.repository}) : super(const PaymentsInitial()) {
     on<PaymentsBalanceRequested>(_onBalanceRequested);
     on<PaymentsVendingAddressRequested>(_onVendingAddressRequested);
+    on<PaymentsErrorDismissed>(_onErrorDismissed);
   }
 
   final PaymentsRepository repository;
@@ -36,5 +37,12 @@ class PaymentsBloc extends Bloc<PaymentsEvent, PaymentsState> {
     } on AppException catch (e) {
       emit(PaymentsError(message: e.message));
     }
+  }
+
+  void _onErrorDismissed(
+    PaymentsErrorDismissed event,
+    Emitter<PaymentsState> emit,
+  ) {
+    emit(const PaymentsInitial());
   }
 }

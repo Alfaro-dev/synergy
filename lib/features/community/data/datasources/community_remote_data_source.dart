@@ -1,3 +1,4 @@
+import '../../../../core/errors/exceptions.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/network/secure_storage_service.dart';
 import '../models/community_model.dart';
@@ -29,7 +30,11 @@ class CommunityRemoteDataSourceImpl implements CommunityRemoteDataSource {
   final SecureStorageService secureStorage;
 
   Future<String> _getToken() async {
-    return await secureStorage.getValidToken() ?? '';
+    final token = await secureStorage.getValidToken();
+    if (token == null || token.isEmpty) {
+      throw const UnauthorizedException('Sesión no válida o expirada');
+    }
+    return token;
   }
 
   @override

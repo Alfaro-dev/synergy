@@ -7,6 +7,7 @@ class WalletService {
   static final WalletService instance = WalletService._();
 
   ReownAppKitModal? _appKitModal;
+  final List<void Function()> _unsubscribers = [];
 
   bool get isInitialized => _appKitModal != null && _appKitModal!.status.isInitialized;
   bool get isConnected => _appKitModal?.isConnected ?? false;
@@ -66,13 +67,25 @@ class WalletService {
 
   void onModalConnect(void Function(ModalConnect?) callback) {
     _appKitModal?.onModalConnect.subscribe(callback);
+    _unsubscribers.add(() => _appKitModal?.onModalConnect.unsubscribe(callback));
   }
 
   void onModalDisconnect(void Function(ModalDisconnect?) callback) {
     _appKitModal?.onModalDisconnect.subscribe(callback);
+    _unsubscribers.add(() => _appKitModal?.onModalDisconnect.unsubscribe(callback));
   }
 
   void onModalNetworkChange(void Function(ModalNetworkChange?) callback) {
     _appKitModal?.onModalNetworkChange.subscribe(callback);
+    _unsubscribers.add(() => _appKitModal?.onModalNetworkChange.unsubscribe(callback));
+  }
+
+  void dispose() {
+    for (final unsub in _unsubscribers) {
+      unsub();
+    }
+    _unsubscribers.clear();
+    _appKitModal?.dispose();
+    _appKitModal = null;
   }
 }

@@ -1,11 +1,9 @@
-import 'dart:developer';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:reown_appkit/reown_appkit.dart';
-import 'package:web3dart/web3dart.dart';
 import '../../../../core/constants/api_constants.dart';
 import '../../../../core/network/secure_storage_service.dart';
 import '../../domain/entities/auth_session.dart';
@@ -18,7 +16,6 @@ const _kChainId     = '11155111';
 const _kChainIdHex  = '0xaa36a7';
 const _kChainIdCaip = 'eip155:11155111';
 const _kNamespace   = 'eip155';
-const _kProjectId   = '3759eb76e8b571340bf95642e3dffb65';
 const _kDomain      = 'sinergia-backend-production.up.railway.app';
 const _kAppUrl      = 'https://sinergia-backend-production.up.railway.app';
 const _kRpcUrl      = 'https://rpc.sepolia.org';
@@ -92,7 +89,7 @@ class _WelcomePageState extends State<WelcomePage> {
   Future<void> _initAppKit() async {
     try {
       final appKit = ReownAppKit(
-        core: ReownCore(projectId: _kProjectId, logLevel: LogLevel.all),
+        core: ReownCore(projectId: ApiConstants.projectId, logLevel: LogLevel.all),
         metadata: const PairingMetadata(
           name: 'Sinergia',
           description: 'Comunidades privadas y anónimas',
@@ -118,11 +115,14 @@ class _WelcomePageState extends State<WelcomePage> {
           createMessage: (args) => SIWEUtils.formatMessage(args),
           verifyMessage: (_) async => true,
           getSession: () async => null,
-          signOut: () async => true,
+          signOut: () async {
+            debugPrint('[Synergy] SIWE signOut called - NOT clearing secure storage (app manages session)');
+            return true;
+          },
           enabled: false,
         ),
         logLevel: LogLevel.all,
-        disconnectOnDispose: true,
+        disconnectOnDispose: false,
       );
 
       _appKitModal.onModalConnect.subscribe(_onModalConnect);
@@ -140,7 +140,10 @@ class _WelcomePageState extends State<WelcomePage> {
       if (mounted) setState(() => _isInitialized = true);
     } catch (e) {
       debugPrint('AppKit init error: $e');
-      if (mounted) setState(() => _initError = e.toString());
+      if (mounted) setState(() {
+        _initError = e.toString();
+        _isInitialized = true;
+      });
     }
   }
 
@@ -262,8 +265,6 @@ class _WelcomePageState extends State<WelcomePage> {
           throw Exception('La conexión se interrumpió. Por favor intentá de nuevo.');
         }
       }
-
-      debugPrint('[Synergy] Firma: $signature');
 
       final verifyRes = await http.post(
         Uri.parse('${ApiConstants.baseUrl}/auth/verify'),

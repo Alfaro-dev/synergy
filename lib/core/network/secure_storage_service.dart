@@ -30,15 +30,12 @@ class SecureStorageService {
 
   Future<void> saveSession(AuthSession session) async {
     log('[SecureStorage] saveSession: START (instance hash=${this.hashCode})');
-    log('[SecureStorage] saveSession: token=${session.token.length} chars, expiresAt=${session.expiresAt.millisecondsSinceEpoch}, wallet=${session.walletAddress}');
     await _storage.write(key: _tokenKey, value: session.token);
     final expiresAtMs = session.expiresAt.millisecondsSinceEpoch;
-    log('[SecureStorage] saveSession: after write token, expiresAtMs=$expiresAtMs');
     await _storage.write(
       key: _expiresAtKey,
       value: expiresAtMs.toString(),
     );
-    log('[SecureStorage] saveSession: after write expiresAt, value=${expiresAtMs.toString()}');
     await _storage.write(key: _isNewUserKey, value: session.isNewUser.toString());
     if (session.walletAddress != null) {
       await _storage.write(key: _addressKey, value: session.walletAddress);
@@ -52,14 +49,21 @@ class SecureStorageService {
     final isNewUserStr = await _storage.read(key: _isNewUserKey);
     final address = await _storage.read(key: _addressKey);
 
-    log('[SecureStorage] getValidToken: READ from storage - token=${token != null ? "${token.length} chars" : "null"}, expiresAtStr="$expiresAtStr", isNewUser="$isNewUserStr", address=${address != null ? "present" : "null"}');
+    log('[SecureStorage] getValidToken: READ from storage - token=${token != null ? "present" : "null"}, expiresAtStr="$expiresAtStr", isNewUser="$isNewUserStr", address=${address != null ? "present" : "null"}');
 
     if (token == null || expiresAtStr == null) {
-      log('[SecureStorage] getValidToken: returning null because token=$token or expiresAtStr=$expiresAtStr is null');
+      log('[SecureStorage] getValidToken: returning null because token or expiresAtStr is null');
       return null;
     }
 
-    final expiresAtMs = int.parse(expiresAtStr);
+    int expiresAtMs;
+    try {
+      expiresAtMs = int.parse(expiresAtStr);
+    } catch (_) {
+      log('[SecureStorage] getValidToken: invalid expiresAtStr, clearing session');
+      await clearSession();
+      return null;
+    }
     final nowMs = DateTime.now().millisecondsSinceEpoch;
     log('[SecureStorage] getValidToken: PARSED - nowMs=$nowMs, expiresAtMs=$expiresAtMs, diff=${expiresAtMs - nowMs}ms');
 
@@ -107,16 +111,15 @@ Future<AuthSession?> getSession() async {
 
   Future<void> clearSession() async {
     log('[SecureStorage] clearSession: CALLED (instance hash=${this.hashCode})');
-    log('[SecureStorage] clearSession: STACK TRACE: ${StackTrace.current}');
     await _storage.deleteAll();
     log('[SecureStorage] clearSession: DONE - all keys deleted');
   }
 
   Future<void> debugPrintStoredKeys() async {
-    final token = await _storage.read(key: 'jwt');
-    final expires = await _storage.read(key: 'jwt_expires_at');
-    final isNewUser = await _storage.read(key: 'is_new_user');
-    final address = await _storage.read(key: 'wallet_address');
-    log('[SecureStorage] Stored keys - jwt: ${token != null ? "${token.length} chars" : "null"}, expires: $expires, isNewUser: $isNewUser, address: $address');
+    final token = await _storage.read(key: _tokenKey);
+    final expires = await _storage.read(key: _expiresAtKey);
+    final isNewUser = await _storage.read(key: _isNewUserKey);
+    final address = await _storage.read(key: _addressKey);
+    log('[SecureStorage] Stored keys - jwt: ${token != null ? "present" : "null"}, expires: $expires, isNewUser: $isNewUser, address: $address');
   }
 }

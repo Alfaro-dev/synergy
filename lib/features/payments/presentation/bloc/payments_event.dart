@@ -15,3 +15,7 @@ final class PaymentsBalanceRequested extends PaymentsEvent {
 final class PaymentsVendingAddressRequested extends PaymentsEvent {
   const PaymentsVendingAddressRequested();
 }
+
+final class PaymentsErrorDismissed extends PaymentsEvent {
+  const PaymentsErrorDismissed();
+}

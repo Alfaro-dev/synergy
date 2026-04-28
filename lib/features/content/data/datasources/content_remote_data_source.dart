@@ -1,4 +1,4 @@
-import 'dart:developer';
+import '../../../../core/errors/exceptions.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/network/secure_storage_service.dart';
 import '../models/post_model.dart';
@@ -22,10 +22,9 @@ class ContentRemoteDataSourceImpl implements ContentRemoteDataSource {
   final SecureStorageService secureStorage;
 
   Future<String> _getToken() async {
-    final token = await secureStorage.getValidToken() ?? '';
-    log('[ContentDataSource] _getToken: ${token.isEmpty ? "EMPTY" : "got ${token.length} chars"}');
-    if (token.isEmpty) {
-      log('[ContentDataSource] WARNING: token is empty!');
+    final token = await secureStorage.getValidToken();
+    if (token == null || token.isEmpty) {
+      throw const UnauthorizedException('Sesión no válida o expirada');
     }
     return token;
   }
@@ -63,7 +62,6 @@ class ContentRemoteDataSourceImpl implements ContentRemoteDataSource {
   @override
   Future<FeedResponseModel> getFeed({String? before}) async {
     final token = await _getToken();
-    log('[ContentDataSource] getFeed called, token length: ${token.length}');
     final endpoint = before != null ? '/content/feed?before=$before' : '/content/feed';
     final response = await apiClient.get(endpoint: endpoint, token: token);
     return FeedResponseModel.fromJson(response);

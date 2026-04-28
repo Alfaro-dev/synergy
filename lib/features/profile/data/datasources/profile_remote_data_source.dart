@@ -20,7 +20,11 @@ class ProfileRemoteDataSourceImpl implements ProfileRemoteDataSource {
   final SecureStorageService secureStorage;
 
   Future<String> _getToken() async {
-    return await secureStorage.getValidToken() ?? '';
+    final token = await secureStorage.getValidToken();
+    if (token == null || token.isEmpty) {
+      throw const UnauthorizedException('Sesión no válida o expirada');
+    }
+    return token;
   }
 
   @override
