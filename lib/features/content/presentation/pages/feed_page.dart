@@ -48,12 +48,26 @@ class _FeedPageState extends State<FeedPage> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Scaffold(
+      backgroundColor: Colors.black,
       appBar: AppBar(
-        title: const Text('Feed'),
+        backgroundColor: Colors.black,
+        title: Text(
+          'Feed',
+          style: TextStyle(
+            fontWeight: FontWeight.w600,
+            color: colorScheme.onSurface,
+          ),
+        ),
+        leading: IconButton(
+          icon: Icon(Icons.arrow_back_ios_rounded, color: colorScheme.onSurface),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.person_outline),
+            icon: Icon(Icons.person_outline, color: colorScheme.onSurface),
             onPressed: () => Navigator.of(context).pushNamed('/profile'),
           ),
         ],
@@ -61,28 +75,49 @@ class _FeedPageState extends State<FeedPage> {
       body: BlocBuilder<FeedBloc, FeedState>(
         builder: (context, state) {
           if (state is FeedLoading) {
-            return const Center(child: CircularProgressIndicator());
+            return Center(
+              child: CircularProgressIndicator(color: colorScheme.primary),
+            );
           }
 
           if (state is FeedError) {
             return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Text(
-                    'Error: ${state.message}',
-                    style: Theme.of(context).textTheme.bodyLarge,
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 16),
-                  FilledButton(
-                    onPressed: () {
-                      context.read<FeedBloc>().add(const FeedRefreshRequested());
-                    },
-                    child: const Text('Reintentar'),
-                  ),
-                ],
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 40),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.error_outline_rounded,
+                      size: 48,
+                      color: colorScheme.error,
+                    ),
+                    const SizedBox(height: 24),
+                    Text(
+                      state.message,
+                      style: TextStyle(
+                        fontSize: 15,
+                        color: colorScheme.onSurface.withOpacity(0.7),
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 32),
+                    FilledButton(
+                      onPressed: () {
+                        context.read<FeedBloc>().add(const FeedRefreshRequested());
+                      },
+                      style: FilledButton.styleFrom(
+                        backgroundColor: colorScheme.surfaceContainerHighest,
+                        foregroundColor: colorScheme.onSurface,
+                        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: const Text('Reintentar'),
+                    ),
+                  ],
+                ),
               ),
             );
           }
@@ -101,16 +136,44 @@ class _FeedPageState extends State<FeedPage> {
             }
 
             if (posts.isEmpty) {
-              return const Center(
-                child: Text('No hay posts aún'),
+              return Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.inbox_outlined,
+                      size: 64,
+                      color: colorScheme.onSurface.withOpacity(0.2),
+                    ),
+                    const SizedBox(height: 24),
+                    Text(
+                      'Sin contenido',
+                      style: TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w500,
+                        color: colorScheme.onSurface,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'No hay posts en tu feed',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: colorScheme.onSurface.withOpacity(0.5),
+                      ),
+                    ),
+                  ],
+                ),
               );
             }
 
             return RefreshIndicator(
               onRefresh: _onRefresh,
-              child: ListView.builder(
+              child: ListView.separated(
                 controller: _scrollController,
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
                 itemCount: posts.length + (hasMore ? 1 : 0),
+                separatorBuilder: (_, __) => const SizedBox(height: 12),
                 itemBuilder: (context, index) {
                   if (index == posts.length) {
                     return const Padding(
@@ -120,21 +183,10 @@ class _FeedPageState extends State<FeedPage> {
                   }
 
                   final post = posts[index];
-                  return ListTile(
-                    leading: CircleAvatar(
-                      child: Text(post.communityName[0].toUpperCase()),
-                    ),
-                    title: Text(post.communityName),
-                    subtitle: Text(
-                      post.author,
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
-                    trailing: post.hasAccess
-                        ? const Icon(Icons.check_circle, color: Colors.green)
-                        : const Icon(Icons.lock, color: Colors.grey),
-                    onTap: () {
-                      // TODO: Navigate to post detail
-                    },
+                  return _FeedPostCard(
+                    communityName: post.communityName,
+                    author: post.author,
+                    hasAccess: post.hasAccess,
                   );
                 },
               ),
@@ -143,6 +195,99 @@ class _FeedPageState extends State<FeedPage> {
 
           return const SizedBox.shrink();
         },
+      ),
+    );
+  }
+}
+
+class _FeedPostCard extends StatelessWidget {
+  const _FeedPostCard({
+    required this.communityName,
+    required this.author,
+    required this.hasAccess,
+  });
+
+  final String communityName;
+  final String author;
+  final bool hasAccess;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return GestureDetector(
+      onTap: () {
+        // TODO: Navigate to post detail
+      },
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: colorScheme.surface,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: colorScheme.outline.withOpacity(0.1),
+          ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    colorScheme.primary,
+                    colorScheme.secondary,
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Center(
+                child: Text(
+                  communityName[0].toUpperCase(),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    communityName,
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: colorScheme.onSurface,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    author,
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: colorScheme.onSurface.withOpacity(0.5),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(
+              hasAccess ? Icons.check_circle : Icons.lock_outline,
+              size: 20,
+              color: hasAccess
+                  ? Colors.green.withOpacity(0.7)
+                  : colorScheme.onSurface.withOpacity(0.3),
+            ),
+          ],
+        ),
       ),
     );
   }

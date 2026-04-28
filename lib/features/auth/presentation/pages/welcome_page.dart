@@ -419,50 +419,89 @@ class _WelcomePageState extends State<WelcomePage> {
   }
 
   Widget _buildHeader(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        Icon(Icons.forum, size: 80, color: Theme.of(context).colorScheme.primary),
-        const SizedBox(height: 24),
-        Text('Synergy', style: Theme.of(context).textTheme.headlineLarge),
-        const SizedBox(height: 8),
-        Text('Entrá con tu wallet', style: Theme.of(context).textTheme.headlineSmall),
-        const SizedBox(height: 8),
+        Container(
+          width: 80,
+          height: 80,
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                colorScheme.primary,
+                colorScheme.secondary,
+              ],
+            ),
+            borderRadius: BorderRadius.circular(22),
+          ),
+          child: Icon(
+            Icons.forum_rounded,
+            size: 44,
+            color: Colors.white,
+          ),
+        ),
+        const SizedBox(height: 32),
         Text(
-          'Sin email. Sin contraseña. Tu identidad es completamente anónima.',
-          textAlign: TextAlign.center,
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
+          'SYNERGY',
+          style: TextStyle(
+            fontSize: 28,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 6,
+            color: colorScheme.onSurface,
+          ),
         ),
       ],
     );
   }
 
   Widget _buildContent(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     if (_isSigning) {
-      return Center(
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 40),
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            const CircularProgressIndicator(),
-            const SizedBox(height: 16),
-            Text('Firmando mensaje...', style: Theme.of(context).textTheme.bodyMedium),
-            const SizedBox(height: 8),
-            Text(
-              'Revisá MetaMask para aprobar',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
+            const SizedBox(height: 48),
+            SizedBox(
+              width: 24,
+              height: 24,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: colorScheme.primary,
+              ),
             ),
             const SizedBox(height: 24),
+            Text(
+              'Firmando...',
+              style: TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.w500,
+                color: colorScheme.onSurface,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Revisá tu wallet',
+              style: TextStyle(
+                fontSize: 13,
+                color: colorScheme.onSurface.withOpacity(0.5),
+              ),
+            ),
+            const SizedBox(height: 32),
             TextButton(
               onPressed: () => setState(() {
                 _isSigning = false;
                 _pendingAddress = null;
                 _retryCount = 0;
               }),
-              child: const Text('Cancelar'),
+              child: Text(
+                'Cancelar',
+                style: TextStyle(color: colorScheme.onSurface.withOpacity(0.5)),
+              ),
             ),
           ],
         ),
@@ -470,24 +509,47 @@ class _WelcomePageState extends State<WelcomePage> {
     }
 
     if (_initError != null) {
-      return Center(
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 40),
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            Icon(Icons.error_outline, size: 64, color: Theme.of(context).colorScheme.error),
-            const SizedBox(height: 16),
-            Text(
-              'No se pudo inicializar la wallet',
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodyMedium,
+            const SizedBox(height: 48),
+            Icon(
+              Icons.error_outline_rounded,
+              size: 48,
+              color: colorScheme.error,
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 24),
+            Text(
+              'Error de conexión',
+              style: TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.w500,
+                color: colorScheme.onSurface,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'No se pudo inicializar',
+              style: TextStyle(
+                fontSize: 13,
+                color: colorScheme.onSurface.withOpacity(0.5),
+              ),
+            ),
+            const SizedBox(height: 32),
             FilledButton(
               onPressed: () {
                 setState(() => _initError = null);
                 _initAppKit();
               },
+              style: FilledButton.styleFrom(
+                backgroundColor: colorScheme.surfaceContainerHighest,
+                foregroundColor: colorScheme.onSurface,
+                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
               child: const Text('Reintentar'),
             ),
           ],
@@ -496,60 +558,109 @@ class _WelcomePageState extends State<WelcomePage> {
     }
 
     if (!_isInitialized) {
-      return const CircularProgressIndicator();
+      return SizedBox(
+        width: 24,
+        height: 24,
+        child: CircularProgressIndicator(
+          strokeWidth: 2,
+          color: colorScheme.primary.withOpacity(0.5),
+        ),
+      );
     }
 
     if (_appKitModal.isConnected) {
       final address = _appKitModal.session?.getAddress(_kNamespace);
-      return Center(
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 40),
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            Icon(
-              Icons.account_balance_wallet_outlined,
-              size: 64,
-              color: Theme.of(context).colorScheme.primary,
+            const SizedBox(height: 48),
+            Container(
+              width: 56,
+              height: 56,
+              decoration: BoxDecoration(
+                color: colorScheme.primary.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Icon(
+                Icons.check_circle_outline_rounded,
+                size: 28,
+                color: colorScheme.primary,
+              ),
             ),
-            const SizedBox(height: 16),
-            Text('Wallet conectada', style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: 24),
+            Text(
+              'Wallet conectada',
+              style: TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.w500,
+                color: colorScheme.onSurface,
+              ),
+            ),
             if (address != null) ...[
               const SizedBox(height: 8),
               Text(
                 '${address.substring(0, 6)}...${address.substring(address.length - 4)}',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
+                style: TextStyle(
+                  fontSize: 13,
+                  fontFamily: 'monospace',
+                  color: colorScheme.onSurface.withOpacity(0.5),
+                ),
               ),
-              const SizedBox(height: 24),
-              FilledButton(
-                onPressed: () => _triggerSiweFlow(address),
-                child: const Text('Iniciar sesión'),
+              const SizedBox(height: 32),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton(
+                  onPressed: () => _triggerSiweFlow(address),
+                  style: FilledButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: const Text(
+                    'Entrar',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextButton(
+                onPressed: () => _appKitModal.disconnect(),
+                child: Text(
+                  'Usar otra wallet',
+                  style: TextStyle(
+                    color: colorScheme.onSurface.withOpacity(0.5),
+                  ),
+                ),
               ),
             ],
-            const SizedBox(height: 12),
-            TextButton(
-              onPressed: () => _appKitModal.disconnect(),
-              child: const Text('Usar otra wallet'),
-            ),
           ],
         ),
       );
     }
 
-    return Center(
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 40),
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          AppKitModalConnectButton(appKit: _appKitModal),
-          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            height: 56,
+            child: AppKitModalConnectButton(
+              appKit: _appKitModal,
+            ),
+          ),
+          const SizedBox(height: 20),
           Text(
-            'Al conectar se te pedirá firmar un mensaje para verificar tu identidad',
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
+            'Conectá tu wallet para empezar',
+            style: TextStyle(
+              fontSize: 13,
+              color: colorScheme.onSurface.withOpacity(0.4),
+            ),
           ),
         ],
       ),
