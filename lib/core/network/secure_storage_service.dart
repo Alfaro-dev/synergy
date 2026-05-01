@@ -43,24 +43,31 @@ class SecureStorageService {
     log('[SecureStorage] saveSession: END - all values written');
   }
 
+  bool _isInvalidExpiry(String? expiresAtStr) {
+    if (expiresAtStr == null) return true;
+    if (expiresAtStr.isEmpty) return true;
+    if (expiresAtStr == 'null') return true;
+    return false;
+  }
+
   Future<String?> getValidToken() async {
     final token = await _storage.read(key: _tokenKey);
     final expiresAtStr = await _storage.read(key: _expiresAtKey);
     final isNewUserStr = await _storage.read(key: _isNewUserKey);
     final address = await _storage.read(key: _addressKey);
 
-    log('[SecureStorage] getValidToken: READ from storage - token=${token != null ? "present" : "null"}, expiresAtStr="$expiresAtStr", isNewUser="$isNewUserStr", address=${address != null ? "present" : "null"}');
+    log('[SecureStorage] getValidToken: READ - token=${token != null ? "present" : "null"}, expiresAtStr="$expiresAtStr", isNewUser="$isNewUserStr", address=${address != null ? "present" : "null"}');
 
-    if (token == null || expiresAtStr == null) {
-      log('[SecureStorage] getValidToken: returning null because token or expiresAtStr is null');
+    if (token == null || _isInvalidExpiry(expiresAtStr)) {
+      log('[SecureStorage] getValidToken: returning null - token or expiresAt invalid');
       return null;
     }
 
     int expiresAtMs;
     try {
-      expiresAtMs = int.parse(expiresAtStr);
+      expiresAtMs = int.parse(expiresAtStr!);
     } catch (_) {
-      log('[SecureStorage] getValidToken: invalid expiresAtStr, clearing session');
+      log('[SecureStorage] getValidToken: invalid expiresAtStr format, clearing session');
       await clearSession();
       return null;
     }

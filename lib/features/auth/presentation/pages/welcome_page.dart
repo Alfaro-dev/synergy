@@ -10,6 +10,10 @@ import '../../domain/entities/auth_session.dart';
 import '../bloc/auth_bloc.dart';
 import '../bloc/auth_event.dart';
 import '../bloc/auth_state.dart';
+import '../../../profile/domain/repositories/profile_repository.dart';
+import '../../../profile/presentation/bloc/profile_bloc.dart';
+import '../../../profile/presentation/bloc/profile_event.dart';
+import '../../../profile/presentation/bloc/profile_state.dart';
 
 // ─── Constantes centralizadas ───────────────────────────────────────────────
 const _kChainId     = '11155111';
@@ -52,33 +56,60 @@ class _WelcomePageState extends State<WelcomePage> {
         isTestNetwork: true,
       ),
     ]);
-    WidgetsBinding.instance.addPostFrameCallback((_) => _initAppKit());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _initAppKit();
+      context.read<AuthBloc>().add(const AuthCheckRequested());
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    return BlocListener<AuthBloc, AuthState>(
-      listener: (context, state) {
-        if (state is AuthAuthenticated) {
-          // AuthBloc received successful auth - wallet already navigated
-        } else if (state is AuthUnauthenticated) {
-          // Logged out - disconnect wallet
-          if (_appKitModal.isConnected) {
-            _appKitModal.disconnect();
-          }
-        }
-      },
-      child: Scaffold(
-        body: SafeArea(
-          child: Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                _buildHeader(context),
-                const SizedBox(height: 48),
-                _buildContent(context),
-              ],
+    return BlocProvider<ProfileBloc>(
+      create: (context) => ProfileBloc(
+        repository: context.read<ProfileRepository>(),
+      ),
+      child: MultiBlocListener(
+        listeners: [
+          BlocListener<AuthBloc, AuthState>(
+            listener: (context, state) async {
+              if (state is AuthAuthenticated) {
+                final isNew = await SecureStorageService.instance.isNewUser();
+                if (isNew) {
+                  if (context.mounted) {
+                    Navigator.of(context).pushReplacementNamed('/profile-setup');
+                  }
+                } else {
+                  context.read<ProfileBloc>().add(const ProfileFetchRequested());
+                }
+              } else if (state is AuthUnauthenticated) {
+                if (_appKitModal.isConnected) {
+                  _appKitModal.disconnect();
+                }
+              }
+            },
+          ),
+          BlocListener<ProfileBloc, ProfileState>(
+            listener: (context, state) {
+              if (state is ProfileLoaded) {
+                Navigator.of(context).pushReplacementNamed('/home');
+              } else if (state is ProfileNotFound) {
+                Navigator.of(context).pushReplacementNamed('/profile-setup');
+              }
+            },
+          ),
+        ],
+        child: Scaffold(
+          body: SafeArea(
+            child: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  _buildHeader(context),
+                  const SizedBox(height: 48),
+                  _buildContent(context),
+                ],
+              ),
             ),
           ),
         ),
@@ -114,7 +145,16 @@ class _WelcomePageState extends State<WelcomePage> {
           ),
           createMessage: (args) => SIWEUtils.formatMessage(args),
           verifyMessage: (_) async => true,
-          getSession: () async => null,
+          getSession: () async {
+            final session = await _secureStorage.getSession();
+            if (session == null) return null;
+            final address = session.walletAddress;
+            if (address == null || address.isEmpty) return null;
+            return SIWESession(
+              address: address,
+              chains: ['eip155:11155111'],
+            );
+          },
           signOut: () async {
             debugPrint('[Synergy] SIWE signOut called - NOT clearing secure storage (app manages session)');
             return true;

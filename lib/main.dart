@@ -37,6 +37,7 @@ import 'features/profile/presentation/bloc/profile_bloc.dart';
 import 'features/profile/presentation/bloc/profile_event.dart';
 import 'features/profile/presentation/bloc/profile_state.dart';
 import 'features/profile/presentation/pages/profile_page.dart';
+import 'features/profile/presentation/pages/profile_setup_page.dart';
 import 'features/payments/data/datasources/payments_remote_data_source.dart';
 import 'features/payments/data/repositories/payments_repository_impl.dart';
 import 'features/payments/domain/repositories/payments_repository.dart';
@@ -194,6 +195,15 @@ class SynergyApp extends StatelessWidget {
               repository: context.read<ProfileRepository>(),
             )..add(const ProfileFetchRequested()),
             child: const ProfilePage(),
+          ),
+        );
+      case '/profile-setup':
+        return MaterialPageRoute(
+          builder: (context) => BlocProvider<ProfileBloc>(
+            create: (context) => ProfileBloc(
+              repository: context.read<ProfileRepository>(),
+            ),
+            child: const ProfileSetupPage(),
           ),
         );
       default:
