@@ -5,6 +5,10 @@ import '../models/community_model.dart';
 
 abstract class CommunityRemoteDataSource {
   Future<CommunitiesResponseModel> getCommunities({String? before});
+  Future<CreateCommunityResponseModel> createCommunity({
+    required String name,
+    String? bio,
+  });
   Future<CreatorProfileModel> getCreatorProfile(String communityId);
   Future<CommunityMetaModel> getCommunityMetadata(String communityId);
   Future<String> updateCommunityMetadata({
@@ -21,6 +25,7 @@ abstract class CommunityRemoteDataSource {
     required String communityId,
     required String filePath,
   });
+  Future<void> joinCommunity(String communityId);
 }
 
 class CommunityRemoteDataSourceImpl implements CommunityRemoteDataSource {
@@ -43,6 +48,23 @@ class CommunityRemoteDataSourceImpl implements CommunityRemoteDataSource {
     final endpoint = before != null ? '/communities?before=$before' : '/communities';
     final response = await apiClient.get(endpoint: endpoint, token: token);
     return CommunitiesResponseModel.fromJson(response);
+  }
+
+  @override
+  Future<CreateCommunityResponseModel> createCommunity({
+    required String name,
+    String? bio,
+  }) async {
+    final token = await _getToken();
+    final body = <String, dynamic>{'name': name};
+    if (bio != null) body['bio'] = bio;
+
+    final response = await apiClient.post(
+      endpoint: '/communities',
+      token: token,
+      body: body,
+    );
+    return CreateCommunityResponseModel.fromJson(response);
   }
 
   @override
@@ -77,7 +99,7 @@ class CommunityRemoteDataSourceImpl implements CommunityRemoteDataSource {
     if (bio != null) body['bio'] = bio;
     if (avatarCid != null) body['avatar_cid'] = avatarCid;
 
-    final response = await apiClient.post(
+    final response = await apiClient.patch(
       endpoint: '/communities/$communityId/metadata',
       token: token,
       body: body,
@@ -112,5 +134,14 @@ class CommunityRemoteDataSourceImpl implements CommunityRemoteDataSource {
       fieldName: 'avatar',
     );
     return response['avatar_cid'] as String;
+  }
+
+  @override
+  Future<void> joinCommunity(String communityId) async {
+    final token = await _getToken();
+    await apiClient.post(
+      endpoint: '/communities/$communityId/join',
+      token: token,
+    );
   }
 }

@@ -4,22 +4,38 @@ class Post extends Equatable {
   const Post({
     required this.cid,
     required this.communityId,
-    required this.author,
+    required this.authorId,
     required this.createdAt,
-    this.mediaUrl,
+    this.title,
+    this.body,
     this.isEncrypted,
+    this.keyVersion,
+    this.authorPseudonym,
+    this.authorAvatarCid,
   });
 
   final String cid;
   final String communityId;
-  final String author;
+  final String authorId;
   final DateTime createdAt;
-  final String? mediaUrl;
+  final String? title;
+  final String? body;
   final bool? isEncrypted;
+  final int? keyVersion;
+  final String? authorPseudonym;
+  final String? authorAvatarCid;
 
   @override
-  List<Object?> get props =>
-      [cid, communityId, author, createdAt, mediaUrl, isEncrypted];
+  List<Object?> get props => [
+        cid,
+        communityId,
+        authorId,
+        createdAt,
+        title,
+        body,
+        isEncrypted,
+        keyVersion,
+      ];
 }
 
 class PostsResponse extends Equatable {

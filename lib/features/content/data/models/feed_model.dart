@@ -1,27 +1,52 @@
 import '../../domain/entities/feed.dart';
 
+class FeedPostAuthorModel {
+  final String pseudonym;
+  final String? avatarCid;
+
+  const FeedPostAuthorModel({required this.pseudonym, this.avatarCid});
+
+  factory FeedPostAuthorModel.fromJson(Map<String, dynamic> json) {
+    return FeedPostAuthorModel(
+      pseudonym: json['pseudonym'] as String,
+      avatarCid: json['avatar_cid'] as String?,
+    );
+  }
+}
+
 class FeedPostModel extends FeedPost {
   const FeedPostModel({
     required super.cid,
     required super.communityId,
     required super.communityName,
-    required super.author,
     required super.createdAt,
     super.mediaUrl,
     super.isEncrypted,
     required super.hasAccess,
+    super.keyVersion,
+    super.title,
+    super.body,
+    super.authorPseudonym,
+    super.authorAvatarCid,
   });
 
   factory FeedPostModel.fromJson(Map<String, dynamic> json) {
+    final author = json['author'] != null
+        ? FeedPostAuthorModel.fromJson(json['author'] as Map<String, dynamic>)
+        : null;
     return FeedPostModel(
       cid: json['cid'] as String,
       communityId: json['community_id'] as String,
       communityName: json['community_name'] as String,
-      author: json['author'] as String,
+      authorPseudonym: author?.pseudonym,
+      authorAvatarCid: author?.avatarCid,
       createdAt: DateTime.parse(json['created_at'] as String),
       mediaUrl: json['media_url'] as String?,
-      isEncrypted: json['is_encrypted'] as bool?,
+      isEncrypted: json['encrypted'] as bool?,
       hasAccess: json['has_access'] as bool,
+      keyVersion: json['key_version'] as int?,
+      title: json['title'] as String?,
+      body: json['body'] as String?,
     );
   }
 }

@@ -45,3 +45,27 @@ final class ForbiddenException extends AppException {
 final class NotFoundException extends AppException {
   const NotFoundException([super.message = 'Recurso no encontrado']);
 }
+
+final class TokenRevokedException extends AppException {
+  const TokenRevokedException() : super('Sesión revocada');
+}
+
+final class ServerBusyException extends AppException {
+  const ServerBusyException([super.message = 'Servidor ocupado, intenta más tarde']);
+}
+
+final class ContentRemovedException extends AppException {
+  const ContentRemovedException() : super('Contenido removido por violar términos');
+}
+
+final class DuplicatePostException extends AppException {
+  const DuplicatePostException() : super('Este contenido ya fue publicado');
+}
+
+final class IpfsUnavailableException extends AppException {
+  const IpfsUnavailableException([super.message = 'Error de conexión con IPFS']);
+}
+
+final class InternalException extends AppException {
+  const InternalException([super.message = 'Error interno del servidor']);
+}

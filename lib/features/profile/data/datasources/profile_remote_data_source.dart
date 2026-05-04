@@ -1,6 +1,7 @@
 import '../../../../core/errors/exceptions.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/network/secure_storage_service.dart';
+import '../models/membership_model.dart';
 import '../models/profile_model.dart';
 
 abstract class ProfileRemoteDataSource {
@@ -11,6 +12,7 @@ abstract class ProfileRemoteDataSource {
     String? avatarCid,
   });
   Future<String> uploadAvatar(String filePath);
+  Future<List<MembershipModel>> getMemberships();
 }
 
 class ProfileRemoteDataSourceImpl implements ProfileRemoteDataSource {
@@ -60,12 +62,25 @@ class ProfileRemoteDataSourceImpl implements ProfileRemoteDataSource {
   @override
   Future<String> uploadAvatar(String filePath) async {
     final token = await _getToken();
-    final response = await apiClient.uploadFile(
+    final response = await apiClient.patchFile(
       endpoint: '/profile/avatar',
       token: token,
       filePath: filePath,
       fieldName: 'avatar',
     );
     return response['avatar_cid'] as String;
+  }
+
+  @override
+  Future<List<MembershipModel>> getMemberships() async {
+    final token = await _getToken();
+    final response = await apiClient.get(
+      endpoint: '/profile/membership',
+      token: token,
+    );
+    final membershipsJson = response['memberships'] as List<dynamic>;
+    return membershipsJson
+        .map((json) => MembershipModel.fromJson(json as Map<String, dynamic>))
+        .toList();
   }
 }

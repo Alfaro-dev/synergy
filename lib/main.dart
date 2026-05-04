@@ -479,7 +479,7 @@ class FeedPageContent extends StatelessWidget {
               final post = posts[index];
               return _FeedPostCard(
                 communityName: post.communityName,
-                author: post.author,
+                author: post.authorPseudonym ?? 'Anon',
                 hasAccess: post.hasAccess,
               );
             },

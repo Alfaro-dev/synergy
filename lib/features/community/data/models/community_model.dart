@@ -47,22 +47,24 @@ class CommunityMetaModel extends CommunityMeta {
 class CommunityModel extends Community {
   const CommunityModel({
     required super.id,
-    required super.name,
     super.avatarCid,
     super.bio,
-    required super.isPublic,
-    required super.createdAt,
+    super.name,
+    super.isPublic,
+    super.createdAt,
     super.creator,
   });
 
   factory CommunityModel.fromJson(Map<String, dynamic> json) {
     return CommunityModel(
-      id: json['id'] as String,
-      name: json['name'] as String,
+      id: (json['community_id'] as String?) ?? (json['id'] as String),
+      name: json['name'] as String?,
       avatarCid: json['avatar_cid'] as String?,
       bio: json['bio'] as String?,
-      isPublic: json['is_public'] as bool? ?? true,
-      createdAt: DateTime.parse(json['created_at'] as String),
+      isPublic: json['is_public'] as bool?,
+      createdAt: json['created_at'] != null
+          ? DateTime.parse(json['created_at'] as String)
+          : null,
       creator: json['creator'] != null
           ? CreatorProfileModel.fromJson(json['creator'] as Map<String, dynamic>)
           : null,
@@ -84,6 +86,23 @@ class CommunitiesResponseModel extends CommunitiesResponse {
           .toList(),
       hasMore: json['has_more'] as bool,
       nextBefore: json['next_before'] as String?,
+    );
+  }
+}
+
+class CreateCommunityResponseModel {
+  final String communityId;
+  final String metadataCid;
+
+  const CreateCommunityResponseModel({
+    required this.communityId,
+    required this.metadataCid,
+  });
+
+  factory CreateCommunityResponseModel.fromJson(Map<String, dynamic> json) {
+    return CreateCommunityResponseModel(
+      communityId: json['community_id'] as String,
+      metadataCid: json['metadata_cid'] as String,
     );
   }
 }

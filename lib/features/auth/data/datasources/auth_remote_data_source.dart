@@ -8,6 +8,7 @@ abstract class AuthRemoteDataSource {
     required String message,
     required String signature,
   });
+  Future<void> logout(String token);
 }
 
 class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
@@ -34,5 +35,10 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
       signature: signature,
     );
     return AuthSessionModel.fromJson(response);
+  }
+
+  @override
+  Future<void> logout(String token) async {
+    await apiClient.logout(token);
   }
 }

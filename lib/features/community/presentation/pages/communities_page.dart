@@ -173,7 +173,7 @@ class _CommunityCard extends StatelessWidget {
                   ? const Icon(Icons.image, color: Colors.white, size: 24)
                   : Center(
                       child: Text(
-                        community.name[0].toUpperCase(),
+                        (community.name ?? 'C')[0].toUpperCase(),
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 22,
@@ -191,7 +191,7 @@ class _CommunityCard extends StatelessWidget {
                     children: [
                       Expanded(
                         child: Text(
-                          community.name,
+                          community.name ?? 'Comunidad',
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
@@ -200,9 +200,9 @@ class _CommunityCard extends StatelessWidget {
                         ),
                       ),
                       Icon(
-                        community.isPublic ? Icons.public_rounded : Icons.lock_rounded,
+                        community.isPublic == true ? Icons.public_rounded : Icons.lock_rounded,
                         size: 16,
-                        color: community.isPublic
+                        color: community.isPublic == true
                             ? Colors.green.withOpacity(0.7)
                             : colorScheme.onSurface.withOpacity(0.3),
                       ),

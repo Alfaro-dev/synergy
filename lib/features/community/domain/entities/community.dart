@@ -33,20 +33,20 @@ class CommunityMeta extends Equatable {
 class Community extends Equatable {
   const Community({
     required this.id,
-    required this.name,
+    this.name,
     this.avatarCid,
     this.bio,
-    required this.isPublic,
-    required this.createdAt,
+    this.isPublic,
+    this.createdAt,
     this.creator,
   });
 
   final String id;
-  final String name;
+  final String? name;
   final String? avatarCid;
   final String? bio;
-  final bool isPublic;
-  final DateTime createdAt;
+  final bool? isPublic;
+  final DateTime? createdAt;
   final CreatorProfile? creator;
 
   @override
