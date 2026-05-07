@@ -39,6 +39,9 @@ class Community extends Equatable {
     this.isPublic,
     this.createdAt,
     this.creator,
+    this.metadataCid,
+    this.membersCount,
+    this.postsCount,
   });
 
   final String id;
@@ -48,10 +51,13 @@ class Community extends Equatable {
   final bool? isPublic;
   final DateTime? createdAt;
   final CreatorProfile? creator;
+  final String? metadataCid;
+  final int? membersCount;
+  final int? postsCount;
 
   @override
   List<Object?> get props =>
-      [id, name, avatarCid, bio, isPublic, createdAt, creator];
+      [id, name, avatarCid, bio, isPublic, createdAt, creator, metadataCid, membersCount, postsCount];
 }
 
 class CommunitiesResponse extends Equatable {

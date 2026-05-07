@@ -72,6 +72,28 @@ class CommunityModel extends Community {
   }
 }
 
+class CommunityListItemModel extends Community {
+  const CommunityListItemModel({
+    required super.id,
+    super.metadataCid,
+    super.membersCount,
+    super.postsCount,
+    super.createdAt,
+  });
+
+  factory CommunityListItemModel.fromJson(Map<String, dynamic> json) {
+    return CommunityListItemModel(
+      id: json['community_id'] as String,
+      metadataCid: json['metadata_cid'] as String?,
+      membersCount: json['members_count'] as int?,
+      postsCount: json['posts_count'] as int?,
+      createdAt: json['created_at'] != null
+          ? DateTime.parse(json['created_at'] as String)
+          : null,
+    );
+  }
+}
+
 class CommunitiesResponseModel extends CommunitiesResponse {
   const CommunitiesResponseModel({
     required super.communities,
@@ -82,7 +104,7 @@ class CommunitiesResponseModel extends CommunitiesResponse {
   factory CommunitiesResponseModel.fromJson(Map<String, dynamic> json) {
     return CommunitiesResponseModel(
       communities: (json['communities'] as List<dynamic>)
-          .map((e) => CommunityModel.fromJson(e as Map<String, dynamic>))
+          .map((e) => CommunityListItemModel.fromJson(e as Map<String, dynamic>))
           .toList(),
       hasMore: json['has_more'] as bool,
       nextBefore: json['next_before'] as String?,

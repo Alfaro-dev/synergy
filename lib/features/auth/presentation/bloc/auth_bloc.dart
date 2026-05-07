@@ -132,7 +132,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     Emitter<AuthState> emit,
   ) async {
     await logout();
-    emit(const AuthUnauthenticated());
+    emit(const AuthUnauthenticated(fromExplicitLogout: true));
   }
 
   Future<void> _onWalletConnected(

@@ -37,7 +37,7 @@
                 <category android:name="android.intent.category.BROWSABLE"/>
                 <data android:scheme="synergy"/>
             </intent-filter>
-            <meta-data android:name="flutter_deeplinking_enabled" android:value="false"/>
+            <meta-data android:name="flutter_deeplinking_enabled" android:value="true"/>
         </activity>
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
@@ -58,6 +58,15 @@
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>
         </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW"/>
+            <category android:name="android.intent.category.BROWSABLE"/>
+            <data android:scheme="https"/>
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW"/>
+            <category android:name="android.intent.category.DEFAULT"/>
+        </intent>
         <package android:name="io.metamask"/>
         <package android:name="com.wallet.crypto.trustapp"/>
         <package android:name="io.gnosis.safe"/>
@@ -67,5 +76,35 @@
         <package android:name="org.toshi"/>
         <package android:name="com.coinbase.wallet"/>
         <package android:name="com.bitpay.cash"/>
+        <package android:name="com.uniswap.android"/>
+        <package android:name="com.exoduswallet"/>
+        <package android:name="com.lattice.wallet"/>
+        <package android:name="com.bitget.trustwallet"/>
+        <package android:name="com.okex.wallet"/>
+        <package android:name="com.tokenpocket.app"/>
+        <package android:name="com.bladewallet"/>
+        <package android:name="com.aave.v3"/>
+        <package android:name="com.crypto.com"/>
+        <package android:name="com.kuCoin"/>
+        <package android:name="io.stormx.wallet"/>
+        <package android:name="io.gcockpit.wallet"/>
+        <package android:name="com.mathwallet.app"/>
+        <package android:name="com.enjin.wallet"/>
+        <package android:name="io.nebulas"/>
+        <package android:name="com.hyperpay.tron"/>
+        <package android:name="com.dawn.wallet"/>
+        <package android:name="im.token.app"/>
+        <package android:name="com.zodiac"/>
+        <package android:name="org.keplr.keplr"/>
+        <package android:name="io.cosmostation"/>
+        <package android:name="com.everstake.onewallet"/>
+        <package android:name="com.lucida"/>
+        <package android:name="com.sprucewallet"/>
+        <package android:name="com.binance.wallet"/>
+        <package android:name="com.huobi.wallet"/>
+        <package android:name="com.imtoken.app"/>
+        <package android:name="com.ontowallet"/>
+        <package android:name="com.bitizen.web3"/>
+        <package android:name="io.uptn.chain"/>
     </queries>
 </manifest>

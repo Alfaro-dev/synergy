@@ -18,6 +18,7 @@ import 'features/auth/presentation/pages/onboarding_page.dart';
 import 'features/auth/presentation/pages/welcome_page.dart';
 import 'features/community/data/datasources/community_remote_data_source.dart';
 import 'features/community/data/repositories/community_repository_impl.dart';
+import 'features/community/domain/entities/community.dart';
 import 'features/community/domain/repositories/community_repository.dart';
 import 'features/community/presentation/bloc/community_bloc.dart';
 import 'features/community/presentation/bloc/community_event.dart';
@@ -478,8 +479,7 @@ class FeedPageContent extends StatelessWidget {
             itemBuilder: (context, index) {
               final post = posts[index];
               return _FeedPostCard(
-                communityName: post.communityName,
-                author: post.authorPseudonym ?? 'Anon',
+                title: post.title,
                 hasAccess: post.hasAccess,
               );
             },
@@ -623,10 +623,9 @@ class ProfilePageContent extends StatelessWidget {
 }
 
 class _FeedPostCard extends StatelessWidget {
-  const _FeedPostCard({required this.communityName, required this.author, required this.hasAccess});
+  const _FeedPostCard({required this.title, required this.hasAccess});
 
-  final String communityName;
-  final String author;
+  final String? title;
   final bool hasAccess;
 
   @override
@@ -655,7 +654,7 @@ class _FeedPostCard extends StatelessWidget {
             ),
             child: Center(
               child: Text(
-                communityName[0].toUpperCase(),
+                (title ?? '?')[0].toUpperCase(),
                 style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600),
               ),
             ),
@@ -665,8 +664,7 @@ class _FeedPostCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(communityName, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: colorScheme.onSurface)),
-                Text(author, style: TextStyle(fontSize: 13, color: colorScheme.onSurface.withOpacity(0.5))),
+                Text(title ?? 'Sin título', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: colorScheme.onSurface)),
               ],
             ),
           ),
@@ -684,7 +682,7 @@ class _FeedPostCard extends StatelessWidget {
 class _CommunityCard extends StatelessWidget {
   const _CommunityCard({required this.community});
 
-  final dynamic community;
+  final Community community;
 
   @override
   Widget build(BuildContext context) {
@@ -712,7 +710,7 @@ class _CommunityCard extends StatelessWidget {
             ),
             child: Center(
               child: Text(
-                community.name[0].toUpperCase(),
+                (community.name ?? 'C')[0].toUpperCase(),
                 style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600),
               ),
             ),
@@ -722,16 +720,19 @@ class _CommunityCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(community.name, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: colorScheme.onSurface)),
+                Text(
+                  community.name ?? 'Comunidad',
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: colorScheme.onSurface),
+                ),
                 if (community.bio != null)
-                  Text(community.bio, style: TextStyle(fontSize: 13, color: colorScheme.onSurface.withOpacity(0.5)), maxLines: 1, overflow: TextOverflow.ellipsis),
+                  Text(community.bio!, style: TextStyle(fontSize: 13, color: colorScheme.onSurface.withOpacity(0.5)), maxLines: 1, overflow: TextOverflow.ellipsis),
               ],
             ),
           ),
           Icon(
-            community.isPublic ? Icons.public_rounded : Icons.lock_rounded,
+            community.isPublic == true ? Icons.public_rounded : Icons.lock_rounded,
             size: 16,
-            color: community.isPublic ? Colors.green.withOpacity(0.7) : colorScheme.onSurface.withOpacity(0.3),
+            color: community.isPublic == true ? Colors.green.withOpacity(0.7) : colorScheme.onSurface.withOpacity(0.3),
           ),
         ],
       ),

@@ -81,7 +81,7 @@ class _WelcomePageState extends State<WelcomePage> {
                 } else {
                   context.read<ProfileBloc>().add(const ProfileFetchRequested());
                 }
-              } else if (state is AuthUnauthenticated) {
+              } else if (state is AuthUnauthenticated && state.fromExplicitLogout) {
                 if (_appKitModal.isConnected) {
                   _appKitModal.disconnect();
                 }
@@ -129,12 +129,12 @@ class _WelcomePageState extends State<WelcomePage> {
           redirect: Redirect(
             native: 'synergy://',
             universal: _kAppUrl,
-            linkMode: false,
+            linkMode: true,
           ),
         ),
       );
 
-      _appKitModal = ReownAppKitModal(
+_appKitModal = ReownAppKitModal(
         context: context,
         appKit: appKit,
         siweConfig: SIWEConfig(

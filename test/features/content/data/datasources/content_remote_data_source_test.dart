@@ -154,8 +154,7 @@ void main() {
                 {
                   'cid': 'QmFeed1',
                   'community_id': 'comm123',
-                  'community_name': 'Test Community',
-                  'author': {'pseudonym': 'TestUser'},
+                  'metadata_cid': 'QmMeta1',
                   'created_at': '2026-05-01T12:00:00.000000000Z',
                   'has_access': true,
                 }
@@ -197,8 +196,7 @@ void main() {
                     {
                       'cid': 'QmPublic1',
                       'community_id': 'comm123',
-                      'community_name': 'Public Community',
-                      'author': {'pseudonym': 'User1'},
+                      'metadata_cid': 'QmMeta1',
                       'created_at': '2026-05-01T12:00:00.000000000Z',
                       'has_access': false,
                     }

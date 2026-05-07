@@ -5,13 +5,18 @@ import '../constants/api_constants.dart';
 import '../errors/exceptions.dart';
 
 class ApiClient {
-  ApiClient({http.Client? client}) : _client = client ?? http.Client();
+  ApiClient({
+    http.Client? client,
+    String? baseUrl,
+  })  : _client = client ?? http.Client(),
+        _baseUrl = baseUrl ?? ApiConstants.baseUrl;
 
   final http.Client _client;
+  final String _baseUrl;
 
   Future<void> logout(String token) async {
     final response = await _client.post(
-      Uri.parse('${ApiConstants.baseUrl}/auth/logout'),
+      Uri.parse('$_baseUrl/auth/logout'),
       headers: _authHeaders(token),
     );
     if (response.statusCode != 204 && response.statusCode != 200) {
@@ -21,7 +26,7 @@ class ApiClient {
 
   Future<Map<String, dynamic>> getNonce() async {
     final response = await _client.get(
-      Uri.parse(ApiConstants.nonceEndpoint),
+      Uri.parse('$_baseUrl/auth/nonce'),
     );
     return _handleAuthResponse(response);
   }
@@ -31,7 +36,7 @@ class ApiClient {
     required String signature,
   }) async {
     final response = await _client.post(
-      Uri.parse(ApiConstants.verifyEndpoint),
+      Uri.parse('$_baseUrl/auth/verify'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({
         'message': message,
@@ -42,7 +47,7 @@ class ApiClient {
   }
 
   Future<Map<String, dynamic>> getPublicFeed({String? before, int limit = 20}) async {
-    var endpoint = '${ApiConstants.baseUrl}/public/feed?limit=$limit';
+    var endpoint = '$_baseUrl/public/feed?limit=$limit';
     if (before != null) endpoint += '&before=$before';
     final response = await _client.get(Uri.parse(endpoint));
     return _handlePublicResponse(response);
@@ -53,7 +58,7 @@ class ApiClient {
     required String token,
   }) async {
     final response = await _client.get(
-      Uri.parse('${ApiConstants.baseUrl}$endpoint'),
+      Uri.parse('$_baseUrl$endpoint'),
       headers: _authHeaders(token),
     );
     return _handleAuthenticatedResponse(response);
@@ -65,7 +70,7 @@ class ApiClient {
     Map<String, dynamic>? body,
   }) async {
     final response = await _client.post(
-      Uri.parse('${ApiConstants.baseUrl}$endpoint'),
+      Uri.parse('$_baseUrl$endpoint'),
       headers: _authHeaders(token),
       body: body != null ? jsonEncode(body) : null,
     );
@@ -78,7 +83,7 @@ class ApiClient {
     Map<String, dynamic>? body,
   }) async {
     final response = await _client.patch(
-      Uri.parse('${ApiConstants.baseUrl}$endpoint'),
+      Uri.parse('$_baseUrl$endpoint'),
       headers: _authHeaders(token),
       body: body != null ? jsonEncode(body) : null,
     );
@@ -91,7 +96,7 @@ class ApiClient {
     Map<String, dynamic>? body,
   }) async {
     final response = await _client.put(
-      Uri.parse('${ApiConstants.baseUrl}$endpoint'),
+      Uri.parse('$_baseUrl$endpoint'),
       headers: _authHeaders(token),
       body: body != null ? jsonEncode(body) : null,
     );
@@ -103,7 +108,7 @@ class ApiClient {
     required String token,
   }) async {
     final response = await _client.delete(
-      Uri.parse('${ApiConstants.baseUrl}$endpoint'),
+      Uri.parse('$_baseUrl$endpoint'),
       headers: _authHeaders(token),
     );
     if (response.statusCode != 200 &&
@@ -120,7 +125,7 @@ class ApiClient {
     Map<String, String>? fields,
     String method = 'POST',
   }) async {
-    final uri = Uri.parse('${ApiConstants.baseUrl}$endpoint');
+    final uri = Uri.parse('$_baseUrl$endpoint');
     final request = http.MultipartRequest(method, uri);
     request.headers.addAll(_authHeaders(token));
     request.files.add(await http.MultipartFile.fromPath(
@@ -171,7 +176,7 @@ class ApiClient {
     required String token,
   }) async {
     final response = await _client.get(
-      Uri.parse('${ApiConstants.baseUrl}$endpoint'),
+      Uri.parse('$_baseUrl$endpoint'),
       headers: _binaryHeaders(token),
     );
 
@@ -190,7 +195,7 @@ class ApiClient {
     required String token,
   }) async {
     final response = await _client.get(
-      Uri.parse('${ApiConstants.baseUrl}$endpoint'),
+      Uri.parse('$_baseUrl$endpoint'),
       headers: _binaryHeaders(token),
     );
 

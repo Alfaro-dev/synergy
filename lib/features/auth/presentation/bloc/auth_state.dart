@@ -49,7 +49,12 @@ final class AuthAuthenticated extends AuthState {
 }
 
 final class AuthUnauthenticated extends AuthState {
-  const AuthUnauthenticated();
+  const AuthUnauthenticated({this.fromExplicitLogout = false});
+
+  @override
+  List<Object?> get props => [fromExplicitLogout];
+
+  final bool fromExplicitLogout;
 }
 
 final class AuthError extends AuthState {

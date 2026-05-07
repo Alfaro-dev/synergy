@@ -75,6 +75,56 @@
 		<string>phantom</string>
 		<string>solflare</string>
 		<string>cbwallet</string>
+		<string>uniswap</string>
+		<string>exodus</string>
+		<string>pillar</string>
+		<string>bitget</string>
+		<string>okx</string>
+		<string>tokenpocket</string>
+		<string>walletconnect</string>
+		<string>blade</string>
+		<string>aave</string>
+		<string>gnosis</string>
+		<string>crypto.com</string>
+		<string>kucoin</string>
+		<string>bitpay</string>
+		<string>foxwallet</string>
+		<string>zerion</string>
+		<string>enjin</string>
+		<string>mathwallet</string>
+		<string>bitpie</string>
+		<string>hypermove</string>
+		<string>dawn</string>
+		<string>zodiac</string>
+		<string>spot</string>
+		<string>ambire</string>
+		<string>monerium</string>
+		<string>keyring</string>
+		<string>web3auth</string>
+		<string>keplr</string>
+		<string>cosmostation</string>
+		<string>everstake</string>
+		<string>lucida</string>
+		<string>spruce</string>
+		<string>binance</string>
+		<string>huobi</string>
+		<string>imtoken</string>
+		<string>onto</string>
+		<string>bitizen</string>
+		<string>opensea</string>
+		<string>rarible</string>
+		<string>zapper</string>
+		<string>deeney</string>
+		<string>sushi</string>
+		<string>balancer</string>
+		<string>1inch</string>
+		<string>yearn</string>
+		<string>curve</string>
+		<string>compound</string>
+		<string>rabbithole</string>
+		<string>layer3</string>
+		<string>questbook</string>
+		<string>galxe</string>
 	</array>
 	<key>CFBundleURLTypes</key>
 	<array>

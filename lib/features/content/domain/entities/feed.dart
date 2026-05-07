@@ -4,43 +4,30 @@ class FeedPost extends Equatable {
   const FeedPost({
     required this.cid,
     required this.communityId,
-    required this.communityName,
+    required this.metadataCid,
     required this.createdAt,
-    this.mediaUrl,
     this.isEncrypted,
     required this.hasAccess,
-    this.keyVersion,
     this.title,
-    this.body,
-    this.authorPseudonym,
-    this.authorAvatarCid,
   });
 
   final String cid;
   final String communityId;
-  final String communityName;
+  final String metadataCid;
   final DateTime createdAt;
-  final String? mediaUrl;
   final bool? isEncrypted;
   final bool hasAccess;
-  final int? keyVersion;
   final String? title;
-  final String? body;
-  final String? authorPseudonym;
-  final String? authorAvatarCid;
 
   @override
   List<Object?> get props => [
         cid,
         communityId,
-        communityName,
+        metadataCid,
         createdAt,
-        mediaUrl,
         isEncrypted,
         hasAccess,
-        keyVersion,
         title,
-        body,
       ];
 }
 
