@@ -401,5 +401,94 @@ void main() {
         expect(result, 3);
       });
     });
+
+    group('updatePost', () {
+      test('updates post with title only', () async {
+        when(() => mockApiClient.patch(
+              endpoint: '/content/communities/comm123/posts/QmPost1',
+              token: testToken,
+              body: {'title': 'New Title'},
+            )).thenAnswer((_) async => {'status': 'updated'});
+
+        await dataSource.updatePost(
+          communityId: 'comm123',
+          cid: 'QmPost1',
+          title: 'New Title',
+        );
+
+        verify(() => mockApiClient.patch(
+              endpoint: '/content/communities/comm123/posts/QmPost1',
+              token: testToken,
+              body: {'title': 'New Title'},
+            )).called(1);
+      });
+
+      test('updates post with title and body', () async {
+        when(() => mockApiClient.patch(
+              endpoint: '/content/communities/comm123/posts/QmPost1',
+              token: testToken,
+              body: {'title': 'New Title', 'body': 'New body'},
+            )).thenAnswer((_) async => {'status': 'updated'});
+
+        await dataSource.updatePost(
+          communityId: 'comm123',
+          cid: 'QmPost1',
+          title: 'New Title',
+          body: 'New body',
+        );
+
+        verify(() => mockApiClient.patch(
+              endpoint: '/content/communities/comm123/posts/QmPost1',
+              token: testToken,
+              body: {'title': 'New Title', 'body': 'New body'},
+            )).called(1);
+      });
+
+      test('throws unauthorized when token is null', () async {
+        when(() => mockSecureStorage.getValidToken())
+            .thenAnswer((_) async => null);
+
+        expect(
+          () => dataSource.updatePost(
+            communityId: 'comm123',
+            cid: 'QmPost1',
+            title: 'New Title',
+          ),
+          throwsA(isA<UnauthorizedException>()),
+        );
+      });
+    });
+
+    group('deletePost', () {
+      test('deletes post successfully', () async {
+        when(() => mockApiClient.delete(
+              endpoint: '/content/communities/comm123/posts/QmPost1',
+              token: testToken,
+            )).thenAnswer((_) async => {});
+
+        await dataSource.deletePost(
+          communityId: 'comm123',
+          cid: 'QmPost1',
+        );
+
+        verify(() => mockApiClient.delete(
+              endpoint: '/content/communities/comm123/posts/QmPost1',
+              token: testToken,
+            )).called(1);
+      });
+
+      test('throws unauthorized when token is null', () async {
+        when(() => mockSecureStorage.getValidToken())
+            .thenAnswer((_) async => null);
+
+        expect(
+          () => dataSource.deletePost(
+            communityId: 'comm123',
+            cid: 'QmPost1',
+          ),
+          throwsA(isA<UnauthorizedException>()),
+        );
+      });
+    });
   });
 }

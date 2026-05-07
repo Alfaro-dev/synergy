@@ -214,6 +214,51 @@ Future<void> logout() async {
 
 ---
 
+### `GET /profile/membership`
+
+**Propósito:** Devuelve todas las comunidades del usuario en un solo call: las que creó, las de pago con suscripción activa y las gratuitas a las que se unió. Es el endpoint principal para construir la barra lateral o el Home.
+
+**Headers:** `Authorization: Bearer <token>`
+
+**Respuesta exitosa `200`:**
+```json
+{
+  "memberships": [
+    {
+      "community_id": "550e8400-e29b-41d4-a716-446655440000",
+      "metadata_cid": "QmMetaAbCdEf...",
+      "role": "creator"
+    },
+    {
+      "community_id": "a1b2c3d4...",
+      "metadata_cid": "QmMetaXyZ...",
+      "role": "subscriber",
+      "expires_at": "2026-06-01T00:00:00Z"
+    },
+    {
+      "community_id": "f1e2d3c4...",
+      "metadata_cid": "QmMeta123...",
+      "role": "member",
+      "joined_at": "2026-05-01T12:00:00Z"
+    }
+  ]
+}
+```
+
+| Campo | Descripción |
+|-------|-------------|
+| `role` | `"creator"` \| `"subscriber"` (pago activo) \| `"member"` (gratuita) |
+| `expires_at` | Solo presente para `role=subscriber`. Expiración de la suscripción on-chain |
+| `joined_at` | Solo presente para `role=member`. Fecha de unión a la comunidad gratuita |
+
+**Errores:**
+
+| Código | `error` | Causa |
+|--------|---------|-------|
+| 401 | `unauthorized` | JWT inválido o ausente |
+
+---
+
 ### `GET /profile`
 
 **Propósito:** Devuelve el perfil del usuario autenticado.
@@ -273,7 +318,7 @@ Future<void> logout() async {
 
 ### `GET /communities`
 
-**Propósito:** Discovery de comunidades públicas con perfil publicado. Solo aparecen comunidades `active=true`, `is_public=true` y con `metadata_cid` poblado. Paginación por cursor.
+**Propósito:** Discovery de comunidades públicas con perfil publicado. Solo aparecen comunidades `active=true`, `is_public=true` y con `metadata_cid` poblado. Paginación por cursor. Soporta búsqueda y filtrado por categoría.
 
 **Headers:** `Authorization: Bearer <token>`
 
@@ -282,15 +327,19 @@ Future<void> logout() async {
 | Param | Tipo | Descripción |
 |-------|------|-------------|
 | `before` | RFC3339Nano | Cursor de paginación. Omitir para la primera página |
+| `search` | `string` | Texto libre. Filtra por nombre de comunidad o seudónimo del creador (full-text) |
+| `category` | `string` | Filtra por categoría exacta (ver `GET /communities/categories`) |
 
 **Respuesta exitosa `200`:**
 ```json
 {
   "communities": [
     {
-      "community_id": "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2",
+      "community_id": "a1b2c3d4e5f6...",
       "metadata_cid": "QmMetaAbCdEf...",
-      "created_at": "2026-04-15T10:30:00.000000000Z"
+      "created_at": "2026-04-15T10:30:00.000000000Z",
+      "members_count": 142,
+      "posts_count": 37
     }
   ],
   "has_more": true,
@@ -309,6 +358,27 @@ Para paginar: pasar `next_before` como `?before=` en la siguiente llamada. Cuand
 
 ---
 
+### `GET /communities/categories`
+
+**Propósito:** Devuelve la lista de categorías válidas para etiquetar comunidades. Usar en Flutter para mostrar chips de filtrado en el discovery.
+
+**Headers:** `Authorization: Bearer <token>`
+
+**Respuesta exitosa `200`:**
+```json
+{
+  "categories": [
+    "Arte", "Bienestar", "Ciencia", "Deportes", "Educación",
+    "Entretenimiento", "Música", "Negocios", "Otro", "Periodismo",
+    "Política", "Tecnología"
+  ]
+}
+```
+
+> El orden puede variar (map de Go). Ordenar en cliente antes de renderizar.
+
+---
+
 ### `POST /communities`
 
 **Propósito:** Crea una comunidad gratuita (`type=free`) directamente en la base de datos, sin pasar por el smart contract. El contenido no se encripta. Para crear una comunidad de pago (con suscripción on-chain), el creador debe registrarla en el contrato `SinergiaEscrow` directamente desde su wallet.
@@ -321,11 +391,13 @@ Para paginar: pasar `next_before` como `?before=` en la siguiente llamada. Cuand
 |-------|------|-------------|--------|-------------|
 | `name` | `string` | Sí | 64 chars | Nombre público de la comunidad |
 | `bio` | `string` | No | 280 chars | Descripción pública |
+| `category` | `string` | No | — | Categoría de la comunidad. Debe ser un valor de `GET /categories` |
 
 ```json
 {
   "name": "Periodismo Libre",
-  "bio": "Noticias sin filtros."
+  "bio": "Noticias sin filtros.",
+  "category": "Periodismo"
 }
 ```
 
@@ -345,6 +417,7 @@ Para paginar: pasar `next_before` como `?before=` en la siguiente llamada. Cuand
 | 400 | `name_required` | Campo `name` vacío |
 | 400 | `name_too_long` | Supera 64 caracteres |
 | 400 | `bio_too_long` | Supera 280 caracteres |
+| 400 | `invalid_category` | La categoría no existe en la lista válida |
 | 401 | `unauthorized` | JWT inválido o ausente |
 | 500 | `ipfs_unavailable` | Error al subir metadatos a IPFS |
 
@@ -352,18 +425,22 @@ Para paginar: pasar `next_before` como `?before=` en la siguiente llamada. Cuand
 
 ### `GET /communities/{communityID}/metadata`
 
-**Propósito:** Proxy del JSON de metadatos de la comunidad almacenado en IPFS. Devuelve nombre, bio y `avatar_cid`.
+**Propósito:** Proxy del JSON de metadatos de la comunidad almacenado en IPFS. Devuelve nombre, bio, `avatar_cid` y contadores en tiempo real.
 
 **Headers:** `Authorization: Bearer <token>`
 
-**Respuesta exitosa `200`** (con `Cache-Control: public, max-age=300`):
+**Respuesta exitosa `200`** (con `Cache-Control: public, max-age=60`):
 ```json
 {
   "name": "Periodismo Libre",
   "bio": "Noticias sin filtros.",
-  "avatar_cid": "QmAvatarAbCdEf..."
+  "avatar_cid": "QmAvatarAbCdEf...",
+  "members_count": 142,
+  "posts_count": 37
 }
 ```
+
+> `members_count` suma suscriptores de pago activos + miembros gratuitos. `posts_count` excluye posts borrados. El `Cache-Control` es de 60 segundos (antes era 300) para que los contadores no queden obsoletos.
 
 **Errores:**
 
@@ -480,6 +557,31 @@ Para paginar: pasar `next_before` como `?before=` en la siguiente llamada. Cuand
 
 ---
 
+### `POST /communities/{communityID}/join`
+
+**Propósito:** Une al usuario a una comunidad gratuita con un solo clic. Para comunidades de pago, el acceso se otorga automáticamente vía suscripción on-chain — no usar este endpoint.
+
+**Headers:** `Authorization: Bearer <token>`
+
+**Payload:** Ninguno.
+
+**Respuesta exitosa `200`:**
+```json
+{ "status": "joined" }
+```
+
+Si el usuario ya era miembro, la respuesta es igualmente `200` (idempotente).
+
+**Errores:**
+
+| Código | `error` | Causa |
+|--------|---------|-------|
+| 401 | `unauthorized` | JWT inválido o ausente |
+| 403 | `paid_community` | La comunidad es de pago; el acceso requiere suscripción on-chain |
+| 404 | `not_found` | La comunidad no existe o no está activa |
+
+---
+
 ## 4. Contenido
 
 ### Modelo de cifrado
@@ -587,17 +689,29 @@ Cada comunidad puede tener múltiples versiones de su clave (tras rotaciones). E
 
 ### `GET /content/communities/{communityID}/key`
 
-**Propósito:** Entrega la clave AES-256 necesaria para descifrar el contenido de IPFS. **El contrato on-chain confirma que la suscripción está activa antes de entregar la clave.** Si se pasa `?version=N`, devuelve la versión histórica correspondiente al `key_version` del post.
+**Propósito:** Indica al cliente si el contenido de la comunidad está cifrado y, si lo está, entrega la clave AES-256 para descifrarlo localmente.
+
+El comportamiento varía según el tipo de comunidad:
+
+- **Comunidad gratuita** (`type = "free"`): el contenido **no está cifrado**. El servidor verifica que el caller sea creador o miembro y responde `{"encrypted": false}`. No se consulta el contrato on-chain ni Vault.
+- **Comunidad de pago** (`type = "paid"`): el contrato on-chain confirma que la suscripción está activa antes de entregar la clave. Si se pasa `?version=N`, devuelve la versión histórica correspondiente al `key_version` del post.
 
 **Headers:** `Authorization: Bearer <token>`
 
-**Query params:**
+**Query params** _(solo aplican a comunidades de pago)_:
 
 | Param | Tipo | Obligatorio | Descripción |
 |-------|------|-------------|-------------|
 | `version` | `integer` | No | Versión de la clave (omitir para la clave activa). Usar el `key_version` del post listado |
 
-**Respuesta exitosa `200`:**
+**Respuesta exitosa `200` — comunidad gratuita:**
+```json
+{
+  "encrypted": false
+}
+```
+
+**Respuesta exitosa `200` — comunidad de pago:**
 ```json
 {
   "key": "<bytes_hex_de_la_clave_AES>",
@@ -611,11 +725,29 @@ Cada comunidad puede tener múltiples versiones de su clave (tras rotaciones). E
 |--------|---------|-------|
 | 400 | `invalid_version` | `?version` no es un entero positivo |
 | 401 | `unauthorized` | JWT inválido o ausente |
-| 403 | `no_active_subscription` | El contrato on-chain no confirma suscripción activa |
+| 403 | `no_access` | Comunidad gratuita: el caller no es creador ni miembro |
+| 403 | `no_active_subscription` | Comunidad de pago: el contrato on-chain no confirma suscripción activa |
 | 404 | `version_not_found` | La versión solicitada no existe en Vault |
 | 500 | `internal` | Error de Vault o RPC |
 
-#### Flujo completo de descifrado de contenido
+#### Flujo completo — comunidad gratuita
+
+```
+1. GET /content/communities/{id}/posts
+   → posts[n].cid       = "QmPostBinario..."
+   → posts[n].encrypted = false
+
+2. GET /content/communities/{id}/key
+   → { "encrypted": false }   ← no hay clave, no hay que descifrar
+
+3. GET /content/communities/{id}/posts/{cid}
+   → Respuesta binaria (stream)
+   → Header X-Encrypted: false
+
+4. [Cliente] Mostrar contenido directamente — sin descifrado
+```
+
+#### Flujo completo — comunidad de pago
 
 ```
 1. GET /content/communities/{id}/posts
@@ -624,7 +756,7 @@ Cada comunidad puede tener múltiples versiones de su clave (tras rotaciones). E
    → posts[n].encrypted    = true
 
 2. GET /content/communities/{id}/key?version=2
-   → key = "<hex_de_32_bytes>"
+   → { "key": "<hex_de_32_bytes>", "version": 2 }
 
 3. GET /content/communities/{id}/posts/{cid}
    → Respuesta binaria (stream)
@@ -818,10 +950,17 @@ String sniffMimeType(Uint8List bytes) {
 
 **Respuesta exitosa `202`:**
 ```json
+{ "status": "received" }
+```
+
+Si el usuario lleva 4 strikes (un dismiss más lo banearía), la respuesta incluye un campo adicional:
+```json
 {
-  "status": "received"
+  "status": "received",
+  "warning": "Has alcanzado 4 reportes falsos. Uno más y perderás el acceso a esta función."
 }
 ```
+Muéstrale este aviso al usuario de forma visible antes de cerrar la pantalla.
 
 **Errores:**
 
@@ -830,6 +969,7 @@ String sniffMimeType(Uint8List bytes) {
 | 400 | `invalid_body \| invalid_severity` | Validación |
 | 401 | `unauthorized` | JWT inválido o ausente |
 | 403 | `no_access` | El usuario no tiene suscripción activa en la comunidad |
+| 403 | `reporting_access_denied` | El usuario acumuló 5 reportes falsos y perdió acceso |
 
 ---
 
@@ -841,12 +981,75 @@ String sniffMimeType(Uint8List bytes) {
 
 **Payload:** Igual que `ReportCommunityPost` (sin restricción de suscripción).
 
-**Respuesta exitosa `202`:**
+**Respuesta exitosa `202`:** Igual que `ReportCommunityPost` — incluye `"warning"` si el usuario lleva 4 strikes.
+
+**Errores:**
+
+| Código | `error` | Causa |
+|--------|---------|-------|
+| 400 | `invalid_body \| invalid_severity` | Validación |
+| 401 | `unauthorized` | JWT inválido o ausente |
+| 403 | `reporting_access_denied` | El usuario acumuló 5 reportes falsos y perdió acceso |
+
+---
+
+### `PATCH /content/communities/{communityID}/posts/{cid}`
+
+**Propósito:** Edita el título y/o body de un post ya publicado. Solo el autor puede editar. El binario en IPFS no se modifica — solo se actualizan los campos de texto en la base de datos.
+
+> Los campos `title` y `body` se re-cifran con la clave personal del autor (gestionada por Vault). El cliente los descifra igual que siempre usando `GET /content/communities/{id}/key` + la postKey del autor.
+
+**Headers:** `Authorization: Bearer <token>`
+
+**Payload** (al menos uno de los dos campos es obligatorio):
+
+| Campo | Tipo | Descripción |
+|-------|------|-------------|
+| `title` | `string` | Nuevo título del post |
+| `body` | `string` | Nuevo cuerpo del post |
+
 ```json
 {
-  "status": "received"
+  "title": "Título corregido",
+  "body": "Cuerpo actualizado con más contexto."
 }
 ```
+
+**Respuesta exitosa `200`:**
+```json
+{ "status": "updated" }
+```
+
+**Errores:**
+
+| Código | `error` | Causa |
+|--------|---------|-------|
+| 400 | `invalid_body` | JSON malformado |
+| 400 | `nothing_to_update` | Ningún campo enviado |
+| 401 | `unauthorized` | JWT inválido o ausente |
+| 403 | `forbidden` | El usuario no es el autor del post |
+| 404 | `not_found` | Post no encontrado o ya borrado |
+
+---
+
+### `DELETE /content/communities/{communityID}/posts/{cid}`
+
+**Propósito:** Borra un post de forma lógica (soft-delete). El post desaparece de todos los feeds y listados. El binario en IPFS permanece (IPFS es inmutable por diseño). Solo el autor o el creador de la comunidad pueden borrar.
+
+**Headers:** `Authorization: Bearer <token>`
+
+**Respuesta exitosa `200`:**
+```json
+{ "status": "deleted" }
+```
+
+**Errores:**
+
+| Código | `error` | Causa |
+|--------|---------|-------|
+| 401 | `unauthorized` | JWT inválido o ausente |
+| 403 | `forbidden` | El usuario no es el autor ni el creador de la comunidad |
+| 404 | `not_found` | Post no encontrado o ya borrado |
 
 ---
 
@@ -941,7 +1144,149 @@ Suscriptor                      Backend                    Contrato SinergiaEscr
 
 ---
 
-## 6. Health Check
+## 6. Administración
+
+Todos los endpoints `/admin/*` requieren el header `X-Admin-Token: <token>` (configurado en la variable de entorno `ADMIN_TOKEN` del backend). Si el token está vacío o es incorrecto, la respuesta es `401 unauthorized`.
+
+### `GET /admin/reports`
+
+**Propósito:** Lista reportes de contenido filtrados por estado. Vista principal de moderación.
+
+**Headers:** `X-Admin-Token: <token>`
+
+**Query params:**
+
+| Param | Valores | Default |
+|-------|---------|---------|
+| `status` | `pending` \| `actioned` \| `dismissed` | `pending` |
+
+**Respuesta exitosa `200`:**
+```json
+{
+  "reports": [
+    {
+      "id": 42,
+      "cid": "QmPostAbCdEf...",
+      "severity": "illegal",
+      "reporter_id": "a1b2c3d4...",
+      "witness_enc": "base64...",
+      "status": "pending",
+      "created_at": "2026-05-02T15:00:00Z"
+    }
+  ]
+}
+```
+
+---
+
+### `POST /admin/reports/{id}/action`
+
+**Propósito:** Toma una acción sobre un reporte pendiente.
+
+- `blacklist`: bloquea el CID (aparece como `451` para cualquier usuario), hace unpin en Pinata y marca el reporte como `actioned`.
+- `dismiss`: descarta el reporte y aplica un **strike automático** al reporter. Al quinto strike, el reporter queda baneado de reportar.
+
+**Headers:** `X-Admin-Token: <token>`
+
+**Payload:**
+
+| Campo | Tipo | Descripción |
+|-------|------|-------------|
+| `action` | `string` | `"blacklist"` \| `"dismiss"` |
+| `reason` | `string` | Motivo (requerido para `blacklist`) |
+
+```json
+{ "action": "dismiss" }
+```
+
+**Respuesta exitosa `200`:**
+```json
+{ "status": "dismissed" }
+```
+
+**Errores:**
+
+| Código | `error` | Causa |
+|--------|---------|-------|
+| 400 | `invalid_request \| invalid_action` | Validación |
+| 404 | `not_found` | Reporte no encontrado o ya procesado |
+
+---
+
+### `PATCH /admin/reporters/{anonID}`
+
+**Propósito:** Gestiona los strikes de un reporter. Permite levantar un baneo por error o resetear el contador completo.
+
+**Headers:** `X-Admin-Token: <token>`
+
+**Payload** (al menos uno de los dos campos):
+
+| Campo | Tipo | Descripción |
+|-------|------|-------------|
+| `banned` | `bool` | `false` para levantar el baneo sin resetear el contador |
+| `reset_strikes` | `bool` | `true` para poner el contador a 0 y levantar el baneo |
+
+```json
+{ "reset_strikes": true }
+```
+
+**Respuesta exitosa `200`:**
+```json
+{ "status": "updated" }
+```
+
+**Errores:**
+
+| Código | `error` | Causa |
+|--------|---------|-------|
+| 400 | `invalid_request` | Body vacío o ningún campo válido |
+| 404 | `not_found` | El usuario no tiene strikes registrados |
+
+---
+
+### `GET /admin/blacklist`
+
+**Propósito:** Lista todos los CIDs bloqueados.
+
+**Headers:** `X-Admin-Token: <token>`
+
+---
+
+### `POST /admin/blacklist`
+
+**Propósito:** Bloquea un CID manualmente (sin reporte previo).
+
+**Headers:** `X-Admin-Token: <token>`
+
+**Payload:** `{ "cid": "QmAbC...", "reason": "motivo" }`
+
+---
+
+### `DELETE /admin/blacklist/{cid}`
+
+**Propósito:** Desbloquea un CID.
+
+**Headers:** `X-Admin-Token: <token>`
+
+---
+
+### `GET /admin/metrics`
+
+**Propósito:** Métricas del sistema en JSON: estado de Vault, TTL del token, blockchain, sweeper, contenido y comunidades.
+
+**Headers:** `X-Admin-Token: <token>`
+
+---
+
+### `GET /admin/monitor`
+
+**Propósito:** Dashboard de monitoreo en tiempo real (HTML). Accesible en el navegador.
+
+**Headers:** `X-Admin-Token` como query param `?token=` (EventSource no soporta headers personalizados).
+
+---
+
+## 8. Health Check
 
 ### `GET /health`
 
@@ -973,6 +1318,9 @@ Suscriptor                      Backend                    Contrato SinergiaEscr
 | `no_active_subscription` | 403 | El contrato on-chain no confirma suscripción |
 | `no_access` | 403 | Sin suscripción activa ni rol de creador |
 | `free_community` | 403 | Operación no disponible en comunidades gratuitas |
+| `paid_community` | 403 | Operación exclusiva de comunidades de pago (ej: join es solo para free) |
+| `reporting_access_denied` | 403 | El usuario acumuló 5 reportes falsos y perdió acceso a reportar |
+| `forbidden` | 403 | El usuario no tiene permisos para esta acción sobre el recurso |
 | `not_found` | 404 | CID o recurso no encontrado |
 | `content_removed` | 451 | CID en lista negra por el administrador |
 | `duplicate_post` | 409 | El mismo contenido ya fue publicado por este usuario |

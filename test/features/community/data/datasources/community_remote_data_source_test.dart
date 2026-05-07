@@ -300,5 +300,34 @@ void main() {
         );
       });
     });
+
+    group('getCategories', () {
+      test('returns list of categories', () async {
+        when(() => mockApiClient.get(
+              endpoint: '/categories',
+              token: testToken,
+            )).thenAnswer((_) async => {
+              'categories': ['Arte', 'Deportes', 'Tecnología'],
+            });
+
+        final result = await dataSource.getCategories();
+
+        expect(result, ['Arte', 'Deportes', 'Tecnología']);
+        verify(() => mockApiClient.get(
+              endpoint: '/categories',
+              token: testToken,
+            )).called(1);
+      });
+
+      test('throws unauthorized when token is null', () async {
+        when(() => mockSecureStorage.getValidToken())
+            .thenAnswer((_) async => null);
+
+        expect(
+          () => dataSource.getCategories(),
+          throwsA(isA<UnauthorizedException>()),
+        );
+      });
+    });
   });
 }

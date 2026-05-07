@@ -1,6 +1,7 @@
 import '../../../../core/errors/exceptions.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/network/secure_storage_service.dart';
+import '../models/category_model.dart';
 import '../models/community_model.dart';
 
 abstract class CommunityRemoteDataSource {
@@ -26,6 +27,7 @@ abstract class CommunityRemoteDataSource {
     required String filePath,
   });
   Future<void> joinCommunity(String communityId);
+  Future<List<String>> getCategories();
 }
 
 class CommunityRemoteDataSourceImpl implements CommunityRemoteDataSource {
@@ -143,5 +145,15 @@ class CommunityRemoteDataSourceImpl implements CommunityRemoteDataSource {
       endpoint: '/communities/$communityId/join',
       token: token,
     );
+  }
+
+  @override
+  Future<List<String>> getCategories() async {
+    final token = await _getToken();
+    final response = await apiClient.get(
+      endpoint: '/categories',
+      token: token,
+    );
+    return CategoriesResponseModel.fromJson(response).categories;
   }
 }

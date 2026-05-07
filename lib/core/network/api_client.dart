@@ -98,6 +98,20 @@ class ApiClient {
     return _handleAuthenticatedResponse(response);
   }
 
+  Future<void> delete({
+    required String endpoint,
+    required String token,
+  }) async {
+    final response = await _client.delete(
+      Uri.parse('${ApiConstants.baseUrl}$endpoint'),
+      headers: _authHeaders(token),
+    );
+    if (response.statusCode != 200 &&
+        response.statusCode != 204) {
+      throw _mapStatusCodeToException(response.statusCode, response.body);
+    }
+  }
+
   Future<Map<String, dynamic>> uploadFileWithFields({
     required String endpoint,
     required String token,

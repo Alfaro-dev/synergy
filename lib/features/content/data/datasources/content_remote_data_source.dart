@@ -36,6 +36,16 @@ abstract class ContentRemoteDataSource {
     String? witnessEnc,
   });
   Future<int> rotateCommunityKey(String communityId);
+  Future<void> updatePost({
+    required String communityId,
+    required String cid,
+    String? title,
+    String? body,
+  });
+  Future<void> deletePost({
+    required String communityId,
+    required String cid,
+  });
 }
 
 class ContentRemoteDataSourceImpl implements ContentRemoteDataSource {
@@ -199,5 +209,36 @@ class ContentRemoteDataSourceImpl implements ContentRemoteDataSource {
       token: token,
     );
     return response['new_version'] as int;
+  }
+
+  @override
+  Future<void> updatePost({
+    required String communityId,
+    required String cid,
+    String? title,
+    String? body,
+  }) async {
+    final token = await _getToken();
+    final bodyMap = <String, dynamic>{};
+    if (title != null) bodyMap['title'] = title;
+    if (body != null) bodyMap['body'] = body;
+
+    await apiClient.patch(
+      endpoint: '/content/communities/$communityId/posts/$cid',
+      token: token,
+      body: bodyMap,
+    );
+  }
+
+  @override
+  Future<void> deletePost({
+    required String communityId,
+    required String cid,
+  }) async {
+    final token = await _getToken();
+    await apiClient.delete(
+      endpoint: '/content/communities/$communityId/posts/$cid',
+      token: token,
+    );
   }
 }
